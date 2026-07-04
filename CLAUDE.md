@@ -40,6 +40,11 @@ automatisch BLOCKED. Abschnitt löschen, wenn es keine gibt. Beispiele:>
 - **Typisierung**: <z. B. Type Hints auf allen Signaturen | kein `any`>
 - **Struktur**: <z. B. Prompts als Textdateien in `prompts/`, nicht inline |
   Datenzugriff nur über Hooks in `src/hooks/`, keine Direktzugriffe in Komponenten>
+- **Im Klartext**: Bei Findings mit Entscheidungsbedarf (Review-Ergebnisse,
+  Security-Punkte, Risiken) immer zusätzlich in nicht-technischer Sprache
+  erklären, was das Problem für Nutzer/Betreiber konkret bedeutet — als
+  eigene Spalte oder Satz. Reine Referenz-Tabellen (Dateilisten,
+  Coverage-Maps) brauchen das nicht.
 - **Secrets**: keine Secrets im Code — Konfiguration über `.env`
   (siehe `.env.example`); echte Werte nur lokal bzw. im Secret-Store des
   Deploy-Ziels.
