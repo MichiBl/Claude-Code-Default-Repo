@@ -1,0 +1,24 @@
+# Dependabot — hält die SHA-gepinnten GitHub Actions aktuell.
+# Ohne dieses File veralten die Pins in den Workflows still (keine Security-
+# Updates, keine neuen Versionen). PRs kommen wöchentlich, gebündelt.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Projektspezifisch aktivieren (einkommentieren + anpassen):
+  #
+  # - package-ecosystem: npm
+  #   directory: /
+  #   schedule:
+  #     interval: weekly
+  #
+  # - package-ecosystem: pip
+  #   directory: /
+  #   schedule:
+  #     interval: weekly

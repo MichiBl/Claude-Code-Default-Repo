@@ -25,6 +25,8 @@ jobs:
   lint-test-build:
     name: Lint • Typecheck • Test • Build
     runs-on: ubuntu-latest
+    # Schutz gegen hängende Runner (Watch-Mode, eingefrorene Tests).
+    timeout-minutes: 15
     steps:
       - name: Checkout
         # actions/checkout v7.0.0
