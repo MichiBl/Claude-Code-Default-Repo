@@ -5,16 +5,15 @@
 # Verwendung:
 #   ./setup.sh /pfad/zum/projekt
 #
-# Die Ordner liegen in dieser Vorlage OHNE führenden Punkt (damit sie im
-# Finder sichtbar sind) und werden beim Kopieren auf die verbindlichen
-# Punkt-Namen abgebildet:
+# Die Vorlagen liegen im Repo bereits unter ihren verbindlichen Punkt-Namen
+# und werden 1:1 ins Zielprojekt kopiert:
 #
-#   claude/        -> .claude/        (Agents, Skill, Hooks, Settings)
-#   githooks/      -> .githooks/      (Pre-Commit-Secret-Scan)
-#   github/        -> .github/        (CI- und Secret-Scan-Workflows)
-#   gitleaks.toml  -> .gitleaks.toml
-#   gitignore      -> .gitignore      (Secrets, Deps, Build-Artefakte)
-#   CLAUDE.md      -> CLAUDE.md
+#   .claude/        (Agents, Skill, Hooks, Settings)
+#   .githooks/      (Pre-Commit-Secret-Scan)
+#   .github/        (CI- und Secret-Scan-Workflows)
+#   .gitleaks.toml
+#   .gitignore      (Secrets, Deps, Build-Artefakte)
+#   CLAUDE.md
 #
 # Existierende Dateien werden NIE überschrieben — der Konflikt wird gemeldet,
 # Entscheidung bleibt beim Nutzer.
@@ -46,24 +45,24 @@ copy_file() {
   fi
 }
 
-# Sichtbaren Vorlagen-Ordner rekursiv auf einen Punkt-Zielordner abbilden.
+# Vorlagen-Ordner rekursiv ins Zielprojekt kopieren (gleicher Name).
 copy_tree() {
-  local src_dir="$1" dest_dir="$2"
+  local dir="$1"
   while IFS= read -r -d '' f; do
-    local rel="${f#"$SRC/$src_dir"/}"
-    copy_file "$src_dir/$rel" "$dest_dir/$rel"
-  done < <(find "$SRC/$src_dir" -type f ! -name '.DS_Store' -print0)
+    local rel="${f#"$SRC/$dir"/}"
+    copy_file "$dir/$rel" "$dir/$rel"
+  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' -print0)
 }
 
 echo "Claude Code Default Setup -> $TARGET"
 echo
 
-copy_tree "claude"   ".claude"
-copy_tree "githooks" ".githooks"
-copy_tree "github"   ".github"
-copy_file "gitleaks.toml" ".gitleaks.toml"
-copy_file "gitignore"     ".gitignore"
-copy_file "CLAUDE.md"     "CLAUDE.md"
+copy_tree ".claude"
+copy_tree ".githooks"
+copy_tree ".github"
+copy_file ".gitleaks.toml" ".gitleaks.toml"
+copy_file ".gitignore"     ".gitignore"
+copy_file "CLAUDE.md"      "CLAUDE.md"
 
 # Hooks ausführbar machen.
 chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" 2>/dev/null || true
@@ -95,6 +94,6 @@ echo
 echo "Nächste Schritte:"
 echo "  1. CLAUDE.md ausfüllen (alle <PLATZHALTER>) — oder Claude machen lassen:"
 echo "     \"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus.\""
-echo "  2. gitleaks installieren, falls nicht vorhanden (auf diesem Mac schon in ~/.local/bin)."
+echo "  2. gitleaks installieren, falls nicht vorhanden (z. B. 'brew install gitleaks')."
 echo "  3. CI-Vorlage aktivieren (siehe Hinweis oben)."
 echo "  4. Auf GitHub: Settings -> Code security -> Secret scanning + Push protection aktivieren."
