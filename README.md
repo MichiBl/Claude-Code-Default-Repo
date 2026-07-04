@@ -38,8 +38,8 @@ CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
 ├── settings.json                # registriert die Hooks + deny-Regeln (Claude liest nie .env/Keys)
 ├── agents/
 │   ├── requirements-engineer.md # Feature -> testbare Spezifikation (sonnet)
-│   ├── solution-architect.md    # Spezifikation -> dateigenauer Plan (opus)
-│   ├── code-reviewer.md         # Diff vs. Plan, Security, Drift (opus)
+│   ├── solution-architect.md    # Spezifikation -> dateigenauer Plan (sonnet)
+│   ├── code-reviewer.md         # Diff vs. Plan, Security, Drift (sonnet)
 │   └── qa-engineer.md           # AC -> echte Tests + Gates (sonnet)
 ├── skills/feature/SKILL.md      # /feature — orchestriert die Pipeline
 └── hooks/

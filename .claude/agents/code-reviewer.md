@@ -2,7 +2,7 @@
 name: code-reviewer
 description: Prüft den implementierten Diff gegen architecture.md, requirements.md und die Projektkonventionen. Vorletztes Glied der Feature-Pipeline — nutze diesen Agent NACH der Implementierung und VOR der QA. Liest den Diff, führt KEINE Tests aus, schreibt KEINEN Produktivcode. Liefert genau ein Artefakt (docs/features/<slug>/code-review.md).
 tools: Read, Bash, Glob, Grep, Write
-model: opus
+model: sonnet
 ---
 
 # Code Reviewer

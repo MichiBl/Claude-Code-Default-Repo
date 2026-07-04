@@ -2,7 +2,7 @@
 name: solution-architect
 description: Entwirft aus einer bestätigten requirements.md einen konkreten, dateigenauen Implementierungsplan. Zweites Glied der Feature-Pipeline — nutze diesen Agent NACH bestätigten Requirements und VOR der Implementierung. Liefert genau ein Artefakt (docs/features/<slug>/architecture.md) und schreibt KEINEN Produktivcode.
 tools: Read, Bash, Glob, Grep, Write
-model: opus
+model: sonnet
 ---
 
 # Solution Architect
