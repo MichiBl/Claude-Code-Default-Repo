@@ -23,6 +23,11 @@
 #       auf frischen Klonen)
 #
 # Optional: ONLY_LINT=1 (env in .claude/settings.json) -> nur Linter, keine Tests.
+#
+# Projekt-Override für andere Stacks (Go, Rust, Sonderfälle):
+#   Existiert ein ausführbares .claude/hooks/verify-project.sh, wird NUR dieses
+#   ausgeführt (gleicher Exit-Code-Vertrag: 0 = grün, 2 = blockieren mit
+#   Begründung auf stderr). Die Stack-Autoerkennung unten entfällt dann.
 
 set -uo pipefail
 
@@ -36,8 +41,15 @@ ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}
 cd "$ROOT" || exit 0
 
 # --- Geänderte Dateien ermitteln (Arbeitsbaum: tracked + untracked) ----------
-CHANGED="$(git status --porcelain 2>/dev/null | awk '{print $NF}')"
+# (git status --porcelain wäre kürzer, bricht aber bei Dateinamen mit
+# Leerzeichen und bei Renames "R old -> new".)
+CHANGED="$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } )"
 [ -z "$CHANGED" ] && exit 0
+
+# --- Projekt-Override: eigenes Gate-Skript ersetzt die Stack-Erkennung -------
+if [ -x "$ROOT/.claude/hooks/verify-project.sh" ]; then
+  exec "$ROOT/.claude/hooks/verify-project.sh"
+fi
 
 # --- Gate-Runner --------------------------------------------------------------
 MAX_LINES=120

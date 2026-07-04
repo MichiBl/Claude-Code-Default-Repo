@@ -79,6 +79,8 @@ Auth-Muster neue Endpunkte nutzen MÜSSEN; wie DB-Zugriffe abgesichert sind
 keine Angriffsfläche hat.>
 
 Secret-Schutz (Defense in Depth, generisch eingerichtet):
+0. `permissions.deny` in `.claude/settings.json` verhindert, dass Claude
+   `.env`/Keys überhaupt liest (Secrets landen nie im Kontext).
 1. Claude-Hook `.claude/hooks/secret-scan.sh` blockt commit/push mit Secrets.
 2. Git-Hook `.githooks/pre-commit` (gitleaks) blockt lokal jeden Commit.
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.

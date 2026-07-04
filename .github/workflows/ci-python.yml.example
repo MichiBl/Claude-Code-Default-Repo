@@ -24,6 +24,8 @@ jobs:
   uv:
     name: lint • typecheck • test (uv)
     runs-on: ubuntu-latest
+    # Schutz gegen hängende Runner.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         # actions/checkout v7.0.0
@@ -62,6 +64,8 @@ jobs:
   pip:
     name: lint • typecheck • test (pip)
     runs-on: ubuntu-latest
+    # Schutz gegen hängende Runner.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         # actions/checkout v7.0.0

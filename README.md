@@ -15,6 +15,16 @@ git clone https://github.com/MichiBl/Claude-Code-Default-Repo.git
 Existierende Dateien werden nie überschrieben. Danach in Claude Code im
 Zielprojekt: *"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus."*
 
+### Bestehende Projekte aktualisieren
+
+```bash
+./Claude-Code-Default-Repo/setup.sh --diff /pfad/zum/projekt
+```
+
+Zeigt pro Template-Datei `fehlt` / `identisch` / `weicht ab` (mit Kurz-Diff),
+ohne etwas zu ändern — Verbesserungen am Template lassen sich so gezielt in
+ältere Projekte übernehmen.
+
 ## Was drin ist
 
 Alle Dateien liegen bereits unter ihren verbindlichen Punkt-Namen
@@ -23,8 +33,9 @@ ins Zielprojekt kopiert.
 
 ```
 CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
+.env.example                     # Vorlage für lokale Konfiguration (echte Werte nur in .env)
 .claude/
-├── settings.json                # registriert beide Hooks
+├── settings.json                # registriert die Hooks + deny-Regeln (Claude liest nie .env/Keys)
 ├── agents/
 │   ├── requirements-engineer.md # Feature -> testbare Spezifikation (sonnet)
 │   ├── solution-architect.md    # Spezifikation -> dateigenauer Plan (opus)
@@ -32,16 +43,26 @@ CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
 │   └── qa-engineer.md           # AC -> echte Tests + Gates (sonnet)
 ├── skills/feature/SKILL.md      # /feature — orchestriert die Pipeline
 └── hooks/
+    ├── session-start.sh         # SessionStart-Hook: installiert fehlende Deps (v. a. Web-Sessions)
     ├── verify.sh                # Stop-Hook: Lint/Typecheck/Tests, Stack-Autoerkennung (Node/uv/pip)
     └── secret-scan.sh           # PreToolUse-Hook: gitleaks vor git commit/push
 .githooks/pre-commit             # gitleaks-Scan bei jedem Commit (auch ohne Claude)
 .gitignore                       # .env, Deps, Build-Artefakte, settings.local.json
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
-.github/workflows/
-├── secret-scan.yml              # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
-├── ci-node.yml.example          # Lint • tsc • Test • Build  (umbenennen -> ci.yml)
-└── ci-python.yml.example        # ruff • mypy/pip-audit • pytest  (umbenennen -> ci.yml)
+.github/
+├── dependabot.yml               # hält die SHA-gepinnten Actions aktuell (wöchentlich, gebündelt)
+└── workflows/
+    ├── secret-scan.yml          # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
+    ├── ci-node.yml.example      # Lint • tsc • Test • Build  (umbenennen -> ci.yml)
+    └── ci-python.yml.example    # ruff • mypy/pip-audit • pytest  (umbenennen -> ci.yml)
 ```
+
+### Andere Stacks (Go, Rust, …)
+
+Der Stop-Hook `verify.sh` kennt Node und Python. Für alles andere legt das
+Zielprojekt ein eigenes ausführbares `.claude/hooks/verify-project.sh` an —
+existiert es, führt `verify.sh` nur dieses aus (gleicher Vertrag: exit 0 =
+grün, exit 2 + stderr = Claude muss nachbessern).
 
 ## Die Feature-Pipeline
 
@@ -63,14 +84,17 @@ Projekts — deshalb ist die Vorlage sorgfältig auszufüllen, besonders
 
 | Schicht | greift |
 |---------|--------|
+| `permissions.deny` in `settings.json` | Claude liest `.env`/Keys gar nicht erst (nichts im Kontext) |
 | Claude-Hook `secret-scan.sh` | bevor Claude committet/pusht |
 | Git-Hook `.githooks/pre-commit` | bei jedem lokalen Commit (auch ohne Claude) |
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
 | GitHub Push Protection | serverseitig — **pro Repo manuell aktivieren** |
 
-Alle vier Schichten nutzen gitleaks bzw. GitHubs eigenen Scanner; ein
+Die Scan-Schichten nutzen gitleaks bzw. GitHubs eigenen Scanner; ein
 Binary, keine Sprachabhängigkeit. Falsch-Positive kommen mit
-Begründungskommentar in die `.gitleaks.toml`-Allowlist.
+Begründungskommentar in die `.gitleaks.toml`-Allowlist. Die deny-Regeln
+davor sind bewusst eng (`.env`, `.env.local`, Keys, `secrets/`) —
+`.env.example` bleibt lesbar, damit Claude die Vorlage pflegen kann.
 
 ## Pro Projekt noch zu tun
 
