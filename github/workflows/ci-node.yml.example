@@ -1,0 +1,62 @@
+# CI-Vorlage für Node-/TypeScript-Projekte (Vite, React, …).
+# Aktivieren: Datei nach ci.yml umbenennen und die Schritte an das Projekt
+# anpassen (Test-Runner, Typecheck-Variante, Node-Version).
+
+name: CI
+
+# Läuft auf jedem PR gegen main (das eigentliche Gate) und auf Pushes nach
+# main (damit ein README-Badge den Trunk-Zustand widerspiegelt).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Überholte Läufe auf demselben Ref abbrechen — spart CI-Minuten.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: der Workflow liest nur den Code.
+permissions:
+  contents: read
+
+jobs:
+  lint-test-build:
+    name: Lint • Typecheck • Test • Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - name: Setup Node.js
+        # actions/setup-node v6.4.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify npm package signatures
+        # Meldet Pakete, deren Registry-Signatur fehlt oder ungültig ist —
+        # ein Hinweis auf missbrauchte Maintainer-Tokens. Soft-fail, weil
+        # npm-Provenance noch nicht universell ist; Warnungen bei Rot prüfen.
+        run: npm audit signatures
+        continue-on-error: true
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        # `tsc -b` folgt Project References (die ein bloßes `tsc --noEmit`
+        # bei `files: []`-Root-Configs ignoriert); --noEmit verhindert Output.
+        run: npx tsc -b --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

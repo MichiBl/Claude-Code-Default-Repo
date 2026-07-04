@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Pre-commit secret scan — blockt gestagte Secrets/Keys lokal, bevor sie
+# jemals das Remote erreichen (der stärkste Ort, ein Leak zu stoppen: ein
+# Secret in der Historie ist kompromittiert, auch wenn es später entfernt wird).
+#
+# Aktivieren (einmal pro Klon):
+#     git config core.hooksPath .githooks
+# (Node-Projekte: als "prepare"-Script in package.json hinterlegen, dann
+# passiert das automatisch bei `npm install`.)
+#
+# CI (.github/workflows/secret-scan.yml) ist der nicht überspringbare
+# Backstop; dieser Hook ist die schnelle lokale erste Linie und kann mit
+# `git commit --no-verify` umgangen werden.
+set -uo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "ℹ gitleaks nicht installiert — lokaler Secret-Scan übersprungen (CI erzwingt ihn trotzdem)."
+  echo "  Installation: https://github.com/gitleaks/gitleaks#installing  (z. B. 'brew install gitleaks')"
+  exit 0
+fi
+
+# (Kein leeres Array: macOS-Bash 3.2 + set -u vertragen keine leere
+# Array-Expansion.)
+CONFIG_OPT=""
+[ -f .gitleaks.toml ] && CONFIG_OPT="--config=.gitleaks.toml"
+
+if ! gitleaks git --staged --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"}; then
+  echo ""
+  echo "✗ gitleaks hat ein potenzielles Secret in den gestagten Änderungen gefunden — Commit blockiert."
+  echo "  Entfernen und stattdessen über eine Umgebungsvariable / einen Secret-Store laden."
+  echo "  Falsch-positiv? Allowlist-Eintrag in .gitleaks.toml ergänzen."
+  echo "  Umgehen (NICHT empfohlen): git commit --no-verify"
+  exit 1
+fi

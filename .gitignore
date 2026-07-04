@@ -1,0 +1,2 @@
+# Nur für dieses Setup-Repo (die Vorlage für Zielprojekte ist die Datei "gitignore" ohne Punkt).
+.DS_Store

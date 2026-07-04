@@ -1,0 +1,29 @@
+# gitleaks-Konfiguration — https://github.com/gitleaks/gitleaks
+#
+# Erweitert das eingebaute Ruleset (deckt u. a. AWS, GCP, Supabase, JWTs,
+# Private Keys und generische hochentropische key/token/password-Zuweisungen ab)
+# und erlaubt NUR bewusst öffentliche Platzhalter.
+#
+# Pro Projekt ergänzen: öffentliche Projekt-IDs, Publishable Keys u. Ä. als
+# Allowlist-Regex — mit Kommentar, WARUM der Wert kein Secret ist.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Bewusst öffentliche Platzhalter — keine echten Secrets."
+
+# Beispiel-/Vorlagedateien dürfen Platzhalterwerte enthalten. Echte Werte
+# leben in .env (git-ignored) bzw. im Secret-Store des Deploy-Ziels.
+paths = [
+  '''\.env\.example$''',
+]
+
+regexes = [
+  # Offensichtliche Platzhalter-Tokens (keine echten Credentials).
+  '''(?i)(your|dein|placeholder|changeme|example|dummy|xxxx+)[-_]?(key|token|secret|password)''',
+  # Doku-Platzhalter wie YOUR_API_KEY_HERE in *.md-Anleitungen.
+  '''YOUR_[A-Z0-9_]+_HERE''',
+  # Lokale Dienste ohne Secret-Charakter.
+  '''http://localhost:[0-9]+''',
+]
