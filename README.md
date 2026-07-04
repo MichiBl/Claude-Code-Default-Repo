@@ -8,7 +8,8 @@ Wiederverwendbares Standard-Setup für neue Projekte — destilliert aus
 ## Verwendung
 
 ```bash
-./setup.sh /pfad/zum/neuen/projekt
+git clone https://github.com/MichiBl/Claude-Code-Default-Repo.git
+./Claude-Code-Default-Repo/setup.sh /pfad/zum/neuen/projekt
 ```
 
 Existierende Dateien werden nie überschrieben. Danach in Claude Code im
@@ -16,13 +17,13 @@ Zielprojekt: *"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus."*
 
 ## Was drin ist
 
-Die Ordner liegen hier bewusst **ohne führenden Punkt** (im Finder sichtbar);
-`setup.sh` bildet sie beim Kopieren auf die verbindlichen Punkt-Namen im
-Zielprojekt ab (`claude/` -> `.claude/` usw.).
+Alle Dateien liegen bereits unter ihren verbindlichen Punkt-Namen
+(`.claude/`, `.github/` usw.) und werden von `setup.sh` unverändert
+ins Zielprojekt kopiert.
 
 ```
 CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
-claude/                          # -> .claude/ im Zielprojekt
+.claude/
 ├── settings.json                # registriert beide Hooks
 ├── agents/
 │   ├── requirements-engineer.md # Feature -> testbare Spezifikation (sonnet)
@@ -33,10 +34,10 @@ claude/                          # -> .claude/ im Zielprojekt
 └── hooks/
     ├── verify.sh                # Stop-Hook: Lint/Typecheck/Tests, Stack-Autoerkennung (Node/uv/pip)
     └── secret-scan.sh           # PreToolUse-Hook: gitleaks vor git commit/push
-githooks/pre-commit              # -> .githooks/ — gitleaks-Scan bei jedem Commit (auch ohne Claude)
-gitignore                        # -> .gitignore — .env, Deps, Build-Artefakte, settings.local.json
-gitleaks.toml                    # -> .gitleaks.toml — Default-Ruleset + Platzhalter-Allowlist
-github/workflows/                # -> .github/workflows/
+.githooks/pre-commit             # gitleaks-Scan bei jedem Commit (auch ohne Claude)
+.gitignore                       # .env, Deps, Build-Artefakte, settings.local.json
+.gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
+.github/workflows/
 ├── secret-scan.yml              # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
 ├── ci-node.yml.example          # Lint • tsc • Test • Build  (umbenennen -> ci.yml)
 └── ci-python.yml.example        # ruff • mypy/pip-audit • pytest  (umbenennen -> ci.yml)
