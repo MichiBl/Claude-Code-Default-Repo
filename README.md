@@ -27,9 +27,8 @@ ohne etwas zu ändern — Verbesserungen am Template lassen sich so gezielt in
 
 ## Was drin ist
 
-Alle Dateien liegen bereits unter ihren verbindlichen Punkt-Namen
-(`.claude/`, `.github/` usw.) und werden von `setup.sh` unverändert
-ins Zielprojekt kopiert.
+Der Baum unten zeigt alle Dateien — `setup.sh` kopiert sie unverändert
+an dieselben Pfade im Zielprojekt.
 
 ```
 CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
