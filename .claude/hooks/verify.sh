@@ -76,7 +76,13 @@ if [ -f package.json ] && printf '%s\n' "$CHANGED" | grep -Eq '\.(ts|tsx|js|jsx|
     has_script lint && run_gate "npm run lint" npm run lint
     if [ -f tsconfig.json ]; then
       # `tsc -b` folgt Project References (die `tsc --noEmit` allein ignoriert).
-      run_gate "npx tsc -b --noEmit" npx tsc -b --noEmit
+      # --no-install: nie aus der Registry nachladen (das npm-Paket "tsc" ist
+      # NICHT der TypeScript-Compiler) — fehlt typescript lokal, nur Hinweis.
+      if npx --no-install tsc --version >/dev/null 2>&1; then
+        run_gate "npx tsc -b --noEmit" npx --no-install tsc -b --noEmit
+      else
+        echo "verify: typescript fehlt in node_modules — Typecheck übersprungen (npm i -D typescript)." >&2
+      fi
     fi
     if [ "${ONLY_LINT:-0}" != "1" ] && has_script test; then
       # CI=1 zwingt Vitest/Jest in den Single-Run-Modus (kein Watch-Mode).

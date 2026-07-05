@@ -67,6 +67,10 @@ if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?push'; the
   fi
   if [ -n "$RANGE" ] && [ -n "$(git rev-list "$RANGE" 2>/dev/null | head -1)" ]; then
     RESULT="$(gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} --log-opts "$RANGE" . 2>&1)" || STATUS=$?
+  elif [ -z "$RANGE" ]; then
+    # Kein Upstream und kein origin/main (typisch: allererster Push eines
+    # frischen Repos) -> gesamte lokale Historie scannen statt gar nicht.
+    RESULT="$(gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
   fi
 else
   # Commit: gestagte Änderungen scannen.

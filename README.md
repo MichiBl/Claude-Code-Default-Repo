@@ -34,7 +34,7 @@ an dieselben Pfade im Zielprojekt.
 CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
 .env.example                     # Vorlage für lokale Konfiguration (echte Werte nur in .env)
 .claude/
-├── settings.json                # registriert die Hooks + deny-Regeln (Claude liest nie .env/Keys)
+├── settings.json                # registriert die Hooks + deny-Regeln gegen .env-/Key-Lesezugriffe
 ├── agents/
 │   ├── requirements-engineer.md # Feature -> testbare Spezifikation (sonnet)
 │   ├── solution-architect.md    # Spezifikation -> dateigenauer Plan (sonnet)
@@ -83,7 +83,7 @@ Projekts — deshalb ist die Vorlage sorgfältig auszufüllen, besonders
 
 | Schicht | greift |
 |---------|--------|
-| `permissions.deny` in `settings.json` | Claude liest `.env`/Keys gar nicht erst (nichts im Kontext) |
+| `permissions.deny` in `settings.json` | blockt direkte Lesezugriffe von Claude auf `.env`-Dateien/Keys (Best-Effort, keine Garantie) |
 | Claude-Hook `secret-scan.sh` | bevor Claude committet/pusht |
 | Git-Hook `.githooks/pre-commit` | bei jedem lokalen Commit (auch ohne Claude) |
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
@@ -92,8 +92,12 @@ Projekts — deshalb ist die Vorlage sorgfältig auszufüllen, besonders
 Die Scan-Schichten nutzen gitleaks bzw. GitHubs eigenen Scanner; ein
 Binary, keine Sprachabhängigkeit. Falsch-Positive kommen mit
 Begründungskommentar in die `.gitleaks.toml`-Allowlist. Die deny-Regeln
-davor sind bewusst eng (`.env`, `.env.local`, Keys, `secrets/`) —
-`.env.example` bleibt lesbar, damit Claude die Vorlage pflegen kann.
+davor decken `.env`-Varianten (auch in Unterordnern), Keys und `secrets/`
+ab — bewusst als Aufzählung statt `.env.*`, damit `.env.example` lesbar
+bleibt und Claude die Vorlage pflegen kann. Eine exotische Variante
+(z. B. `.env.custom`) muss man selbst ergänzen. Die Regeln fangen direkte
+Lesezugriffe ab, sind aber Best-Effort — verlässlich blocken erst die
+Scan-Schichten darunter.
 
 ## Pro Projekt noch zu tun
 
