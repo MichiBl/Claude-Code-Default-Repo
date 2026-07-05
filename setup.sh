@@ -128,12 +128,19 @@ else
   echo "     git -C \"$TARGET\" config core.hooksPath .githooks"
 fi
 
-# Stack-Hinweis für die CI-Vorlage.
+# Stack-Hinweis für die CI-Vorlage — plus Lint-Gate-Check: ohne Linter im
+# Zielprojekt laufen verify.sh, CI und QA still leer (falsche Sicherheit).
 echo
 if [ -f "$TARGET/package.json" ]; then
   echo "  ℹ  Node-Projekt erkannt -> .github/workflows/ci-node.yml.example nach ci.yml umbenennen und anpassen."
+  if ! grep -q '"lint"' "$TARGET/package.json"; then
+    echo "  ⚠  Kein \"lint\"-Script in package.json — verify.sh/CI/QA linten sonst NICHT (z. B. ESLint einrichten)."
+  fi
 elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   echo "  ℹ  Python-Projekt erkannt -> .github/workflows/ci-python.yml.example nach ci.yml umbenennen, EINEN Job (uv|pip) behalten."
+  if ! grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
+    echo "  ⚠  ruff nicht in den Dependencies — verify.sh/CI/QA linten sonst NICHT (ruff als Dev-Dependency ergänzen)."
+  fi
 else
   echo "  ℹ  Stack nicht erkannt -> passende ci-*.yml.example nach ci.yml umbenennen und anpassen."
   echo "     Anderer Stack (Go, Rust, …)? Eigenes Gate als .claude/hooks/verify-project.sh hinterlegen."

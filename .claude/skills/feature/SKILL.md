@@ -20,16 +20,25 @@ explizit verlangt.
 Dependency-Update, fehlender Test für bereits gebauten Code (`qa-engineer`
 direkt aufrufen), Exploration/Q&A (direkt beantworten).
 
-## Precondition (Hard-Stop)
+## Preconditions (Hard-Stop)
 
-Die QA-Phase schreibt und **führt** echte Tests aus. Prüfe vor dem Start, dass
-Test-Infrastruktur existiert (Test-Runner konfiguriert UND mindestens eine
-Testdatei im Repo). Fehlt sie, stoppe sofort und frage den User:
+Prüfe vor dem Start beide Voraussetzungen; fehlt eine, stoppe sofort und
+bootstrappe sie NIE als Nebenprodukt eines Feature-Laufs:
 
-> "Die /feature-Pipeline braucht funktionierende Test-Infrastruktur. Soll ich
-> die zuerst aufsetzen (eigene Aufgabe), bevor wir das Feature starten?"
+1. **Test-Infrastruktur** — die QA-Phase schreibt und **führt** echte Tests
+   aus. Es braucht einen konfigurierten Test-Runner UND mindestens eine
+   Testdatei im Repo. Fehlt sie, frage den User:
 
-Bootstrappe die Infrastruktur NIE als Nebenprodukt eines Feature-Laufs.
+   > "Die /feature-Pipeline braucht funktionierende Test-Infrastruktur. Soll
+   > ich die zuerst aufsetzen (eigene Aufgabe), bevor wir das Feature starten?"
+
+2. **Lint-Gate** — verify.sh, CI und QA linten nur, was existiert. Es braucht
+   einen eingerichteten Linter (Node: `lint`-Script in `package.json`;
+   Python: ruff in den Dev-Dependencies; andere Stacks:
+   `.claude/hooks/verify-project.sh` vorhanden). Fehlt er, frage den User:
+
+   > "Das Projekt hat kein Lint-Gate — verify.sh, CI und QA würden ohne
+   > Linter laufen. Soll ich zuerst einen einrichten (eigene Aufgabe)?"
 
 ## Slug-Ableitung
 
