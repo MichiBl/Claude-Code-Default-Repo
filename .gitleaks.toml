@@ -15,6 +15,9 @@ description = "Bewusst öffentliche Platzhalter — keine echten Secrets."
 
 # Beispiel-/Vorlagedateien dürfen Platzhalterwerte enthalten. Echte Werte
 # leben in .env (git-ignored) bzw. im Secret-Store des Deploy-Ziels.
+# ACHTUNG (bewusstes Restrisiko): .env.example ist damit der blinde Fleck
+# aller gitleaks-Schichten — ein versehentlich echter Wert dort passiert
+# Pre-Commit, Claude-Hook und CI. Dort dürfen NUR Platzhalter stehen.
 paths = [
   '''\.env\.example$''',
 ]
