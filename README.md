@@ -102,5 +102,8 @@ davor sind bewusst eng (`.env`, `.env.local`, Keys, `secrets/`) —
 3. `brew install gitleaks` (einmal pro Maschine).
 4. GitHub: Secret scanning + Push protection aktivieren; Branch Protection
    mit den Checks `CI` und `Secret Scan` als Required.
-5. Test-Infrastruktur aufsetzen, falls das Projekt neu ist — die
-   `/feature`-Pipeline verweigert den Start ohne.
+5. Lint-Gate sicherstellen (Node: `lint`-Script in `package.json`, Python:
+   ruff als Dev-Dependency) — ohne Linter laufen verify.sh, CI und QA leer;
+   `setup.sh` warnt, wenn er fehlt.
+6. Test-Infrastruktur aufsetzen, falls das Projekt neu ist — die
+   `/feature`-Pipeline verweigert den Start ohne (ebenso ohne Lint-Gate).
