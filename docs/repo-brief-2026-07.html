@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repository Brief — Fünf Projekte im Vergleich</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FBF7F0;
+    --surface: #FFFFFF;
+    --ink: #1C1917;
+    --ink-soft: #44403C;
+    --muted: #78716C;
+    --line: #E7E5E4;
+    --line-strong: #D6D3D1;
+    --accent: #B45309;
+    --accent-soft: #FEF3C7;
+    --accent-deep: #78350F;
+    --green: #166534;
+    --red: #991B1B;
+    --display: 'Fraunces', Georgia, serif;
+    --sans: 'IBM Plex Sans', -apple-system, sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 400;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(180,83,9,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 100%, rgba(180,83,9,0.03) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 48px;
+  }
+
+  /* ================== HEADER ================== */
+  header {
+    padding: 48px 0 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .meta-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 64px;
+  }
+  .meta-strip .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .hero-title {
+    font-family: var(--display);
+    font-weight: 300;
+    font-size: clamp(48px, 8vw, 96px);
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    margin-bottom: 24px;
+    font-variation-settings: "opsz" 144;
+  }
+  .hero-title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  .hero-subtitle {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--ink-soft);
+    max-width: 720px;
+    line-height: 1.45;
+    margin-bottom: 48px;
+    font-style: italic;
+  }
+  .byline {
+    display: flex;
+    gap: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .byline-item label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .byline-item span { color: var(--ink); font-weight: 500; }
+
+  /* ================== SECTION ================== */
+  section { padding: 96px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+
+  .section-header { margin-bottom: 56px; }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .section-title {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+    max-width: 800px;
+  }
+  .section-title em { font-style: italic; color: var(--accent); }
+  .section-lead {
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 680px;
+    line-height: 1.6;
+  }
+
+  /* ================== TL;DR BAR ================== */
+  .tldr {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 40px 48px;
+    border-radius: 2px;
+    margin: 56px 0 0;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .tldr-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent-soft);
+    padding-top: 4px;
+  }
+  .tldr-text {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 300;
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  /* ================== ÜBERBLICK CARDS ================== */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .ov-card {
+    background: var(--surface);
+    padding: 32px 26px 34px;
+    transition: background 0.3s ease;
+    cursor: pointer;
+  }
+  .ov-card:hover { background: var(--accent-soft); }
+  .ov-card-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+  .ov-card-name {
+    font-family: var(--display);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    margin-bottom: 12px;
+    line-height: 1.1;
+  }
+  .ov-card-desc {
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    min-height: 84px;
+  }
+  .ov-stats {
+    display: flex;
+    gap: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .ov-stat label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .ov-stat-value {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* ================== SPEKTRUM ================== */
+  .spectrum {
+    margin-top: 48px;
+    padding: 48px 0;
+  }
+  .spectrum-axis {
+    position: relative;
+    height: 4px;
+    background: linear-gradient(90deg, var(--line) 0%, var(--accent) 100%);
+    margin: 80px 24px 80px;
+    border-radius: 2px;
+  }
+  .spectrum-mark {
+    position: absolute;
+    top: -8px;
+    width: 20px;
+    height: 20px;
+    background: var(--surface);
+    border: 3px solid var(--accent);
+    border-radius: 50%;
+    transform: translateX(-50%);
+  }
+  .spectrum-mark::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+  .spectrum-mark::before {
+    content: attr(data-stage);
+    position: absolute;
+    top: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .spectrum-mark.alt::after { bottom: auto; top: 60px; }
+  .spectrum-mark.alt::before { top: auto; bottom: 60px; }
+  .spectrum-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 16px;
+  }
+
+  /* ================== VERGLEICHSTABELLE ================== */
+  .table-scroll { overflow-x: auto; margin-top: 32px; }
+  .compare-table {
+    width: 100%;
+    min-width: 1000px;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .compare-table th, .compare-table td {
+    padding: 16px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .compare-table th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 2px solid var(--ink);
+  }
+  .compare-table th:first-child, .compare-table td:first-child {
+    padding-left: 0;
+    width: 150px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .compare-table tbody tr:hover { background: var(--surface); }
+  .compare-table .repo-name {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .num-big {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .badge.green { color: var(--green); border-color: var(--green); background: rgba(22,101,52,0.05); }
+  .badge.amber { color: var(--accent); border-color: var(--accent); background: rgba(180,83,9,0.05); }
+  .badge.red { color: var(--red); border-color: var(--red); background: rgba(153,27,27,0.05); }
+
+  /* ================== TABS ================== */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 56px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 16px 20px;
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+  .tab-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    margin-right: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  .tab-panel { display: none; animation: fadeIn 0.4s ease; }
+  .tab-panel.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ================== TAB CONTENT ================== */
+  .panel-header {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 48px;
+    margin-bottom: 48px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-name {
+    font-family: var(--display);
+    font-size: 56px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+  .panel-name em { font-style: italic; color: var(--accent); }
+  .panel-tagline {
+    font-size: 18px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .stat-cell {
+    background: var(--surface);
+    padding: 20px 18px;
+  }
+  .stat-cell label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .stat-cell-value {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .stat-cell-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 48px;
+    margin-bottom: 56px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--line);
+  }
+  .content-grid:last-child { border-bottom: none; padding-bottom: 0; }
+  .content-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-top: 4px;
+  }
+  .content-body { font-size: 15px; line-height: 1.7; color: var(--ink-soft); }
+  .content-body p { margin-bottom: 12px; }
+  .content-body strong { color: var(--ink); font-weight: 600; }
+  .content-body ul { padding-left: 0; list-style: none; }
+  .content-body li {
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--line);
+    position: relative;
+    padding-left: 24px;
+  }
+  .content-body li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: bold;
+  }
+  .content-body li:last-child { border-bottom: none; }
+  .content-body code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--accent-soft);
+    padding: 2px 6px;
+  }
+
+  /* ================== STACK CHIPS ================== */
+  .stack-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    display: inline-block;
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    border-radius: 2px;
+  }
+  .chip.primary {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+
+  /* ================== HIGHLIGHT BOX ================== */
+  .highlight-box {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    padding: 24px 32px;
+    margin: 16px 0;
+  }
+  .highlight-box h4 {
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  .highlight-box p {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  /* ================== INSIGHTS ================== */
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+  }
+  .insight {
+    background: var(--surface);
+    padding: 36px 32px;
+    border: 1px solid var(--line);
+    position: relative;
+  }
+  .insight-num {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 80px;
+    line-height: 1;
+    color: var(--accent-soft);
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    pointer-events: none;
+  }
+  .insight-title {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    line-height: 1.2;
+    position: relative;
+  }
+  .insight-body {
+    font-size: 15px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    position: relative;
+  }
+  .insight-body strong { color: var(--ink); }
+  .insight-body code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--accent-soft);
+    padding: 1px 5px;
+  }
+
+  /* ================== EMPFEHLUNGEN ================== */
+  .recommendations {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 32px;
+  }
+  .rec {
+    display: grid;
+    grid-template-columns: 60px 1fr 100px;
+    gap: 32px;
+    align-items: start;
+    background: var(--surface);
+    padding: 28px 32px;
+    border: 1px solid var(--line);
+  }
+  .rec-num {
+    font-family: var(--display);
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .rec-content h4 {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .rec-content p { font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+  .rec-effort {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .rec-effort .effort-val {
+    display: block;
+    font-size: 14px;
+    color: var(--ink);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  /* ================== FOOTER ================== */
+  footer {
+    padding: 64px 0 48px;
+    border-top: 2px solid var(--ink);
+    margin-top: 0;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 48px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .footer-grid h5 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+
+  /* ================== RESPONSIVE ================== */
+  @media (max-width: 900px) {
+    .container { padding: 0 24px; }
+    .overview-grid { grid-template-columns: 1fr; }
+    .panel-header { grid-template-columns: 1fr; }
+    .content-grid { grid-template-columns: 1fr; gap: 16px; }
+    .insight-grid { grid-template-columns: 1fr; }
+    .rec { grid-template-columns: 1fr; gap: 12px; }
+    .rec-effort { text-align: left; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .meta-strip { flex-wrap: wrap; gap: 16px; }
+    .byline { flex-wrap: wrap; gap: 24px; }
+    .tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .tab { white-space: nowrap; padding: 14px 14px; font-size: 15px; }
+    .spectrum { display: none; }
+  }
+
+  /* ================== PRINT ================== */
+  @media print {
+    body { background: white; }
+    section { page-break-inside: avoid; padding: 32px 0; }
+    .tab-panel { display: block !important; page-break-before: always; }
+    .tabs { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ============ HEADER ============ -->
+  <header>
+    <div class="meta-strip">
+      <span><span class="dot"></span>Repository Brief — Privatprojekte · Update</span>
+      <span>07 / Juli / 2026</span>
+    </div>
+
+    <h1 class="hero-title">
+      Fünf Repositories,<br>
+      ein <em>Workflow</em>.
+    </h1>
+
+    <p class="hero-subtitle">
+      Zwei Monate nach dem ersten Brief: der News Agent ist von 17 % auf 90 % gewachsen,
+      ein komplett neues Projekt ist in neun Tagen entstanden — und der Workflow selbst
+      ist jetzt ein eigenes, öffentliches Template-Repository.
+    </p>
+
+    <div class="byline">
+      <div class="byline-item">
+        <label>Autor</label>
+        <span>Michael</span>
+      </div>
+      <div class="byline-item">
+        <label>Anlass</label>
+        <span>Show-and-Tell</span>
+      </div>
+      <div class="byline-item">
+        <label>Kontext</label>
+        <span>Private Sideprojekte</span>
+      </div>
+      <div class="byline-item">
+        <label>Lesezeit</label>
+        <span>~ 10 Minuten</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ TL;DR ============ -->
+  <section style="border-bottom: none; padding-top: 64px; padding-bottom: 0;">
+    <div class="tldr">
+      <div class="tldr-label">TL;DR</div>
+      <div class="tldr-text">
+        Aus drei Repos sind fünf geworden. Der Ausblick vom Mai ist abgearbeitet:
+        der <strong style="color:#FEF3C7">News Agent</strong> ist von 17 % auf 90 % implementiert (459 Tests),
+        <strong style="color:#FEF3C7">Stock-Wise</strong> steht bei 202 gemergten PRs und ~99 % —
+        inklusive Backtest-Pipeline. Neu dazugekommen: <strong style="color:#FEF3C7">local-mail-ai</strong>,
+        ein lokaler, strikt read-only Mail-Assistent, in neun Tagen mit 417 Tests gebaut, und das
+        <strong style="color:#FEF3C7">Claude-Code-Default-Repo</strong> — der destillierte Workflow als
+        wiederverwendbares Template. Am 5. Juli liefen Security-Reviews über alle vier Projekte:
+        keine kritischen Findings, nur Defense-in-Depth-Härtungen.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ÜBERBLICK ============ -->
+  <section>
+    <div class="section-header">
+      <div class="section-num">01 — Auf einen Blick</div>
+      <h2 class="section-title">Fünf Projekte. Ein <em>System.</em></h2>
+      <p class="section-lead">
+        Vier sehr unterschiedliche Anwendungen — vom Single-File-Lernspiel bis zum
+        26 000-Zeilen-Screener — plus das Template-Repo, das den gemeinsamen
+        Entwicklungs-Workflow für alle künftigen Projekte konserviert.
+      </p>
+    </div>
+
+    <div class="overview-grid">
+      <div class="ov-card" onclick="switchTab('kreon')">
+        <div class="ov-card-tag">Therapie / Health</div>
+        <div class="ov-card-name">Kreon-Koch</div>
+        <p class="ov-card-desc">
+          Browser-Lernspiel für Kinder mit Cystischer Fibrose. Baut jetzt als EINE
+          offline-fähige HTML-Datei — bereit zur Weitergabe.
+        </p>
+        <div class="ov-stats">
+          <div class="ov-stat"><label>LOC</label><div class="ov-stat-value">~845</div></div>
+          <div class="ov-stat"><label>PRs</label><div class="ov-stat-value">18</div></div>
+          <div class="ov-stat"><label>Status</label><div class="ov-stat-value">Live</div></div>
+        </div>
+      </div>
+
+      <div class="ov-card" onclick="switchTab('stockwise')">
+        <div class="ov-card-tag">Finanz / Production</div>
+        <div class="ov-card-name">Stock-Wise Scanner</div>
+        <p class="ov-card-desc">
+          Invite-only Stock-Screener, 5 Indizes, ~660 Ticker, drei Scoring-Strategien —
+          jetzt mit Backtest-Workflow und reaktivierten Qualitäts-Scores.
+        </p>
+        <div class="ov-stats">
+          <div class="ov-stat"><label>LOC</label><div class="ov-stat-value">~26k</div></div>
+          <div class="ov-stat"><label>Tests</label><div class="ov-stat-value">728</div></div>
+          <div class="ov-stat"><label>PRs</label><div class="ov-stat-value">202</div></div>
+        </div>
+      </div>
+
+      <div class="ov-card" onclick="switchTab('newsagent')">
+        <div class="ov-card-tag">Multi-Agent / Fast fertig</div>
+        <div class="ov-card-name">News Agent</div>
+        <p class="ov-card-desc">
+          Der Spec-First-Skeleton vom Mai ist jetzt eine funktionierende Pipeline:
+          Google ADK + Gemini erzeugen ein tägliches Aktien-Briefing per Mail.
+        </p>
+        <div class="ov-stats">
+          <div class="ov-stat"><label>LOC</label><div class="ov-stat-value">~2,1k</div></div>
+          <div class="ov-stat"><label>Tests</label><div class="ov-stat-value">459</div></div>
+          <div class="ov-stat"><label>Status</label><div class="ov-stat-value">90 %</div></div>
+        </div>
+      </div>
+
+      <div class="ov-card" onclick="switchTab('mailai')">
+        <div class="ov-card-tag">Lokal-KI / Neu</div>
+        <div class="ov-card-name">local-mail-ai</div>
+        <p class="ov-card-desc">
+          Datensparsamer Mail- &amp; Kalender-Assistent, komplett lokal (Ollama + Gemma
+          auf M1/8 GB), strikt read-only. In neun Tagen von null gebaut.
+        </p>
+        <div class="ov-stats">
+          <div class="ov-stat"><label>LOC</label><div class="ov-stat-value">~1,1k</div></div>
+          <div class="ov-stat"><label>Tests</label><div class="ov-stat-value">417</div></div>
+          <div class="ov-stat"><label>PRs</label><div class="ov-stat-value">19</div></div>
+        </div>
+      </div>
+
+      <div class="ov-card" onclick="switchTab('template')">
+        <div class="ov-card-tag">Meta / Workflow</div>
+        <div class="ov-card-name">Default-Repo</div>
+        <p class="ov-card-desc">
+          Der Workflow als Produkt: CLAUDE.md-Template, 4 Subagents, Feature-Pipeline,
+          4-Schichten-Secret-Schutz — per setup.sh in jedes neue Projekt kopierbar.
+        </p>
+        <div class="ov-stats">
+          <div class="ov-stat"><label>Zeilen</label><div class="ov-stat-value">~1,3k</div></div>
+          <div class="ov-stat"><label>Agents</label><div class="ov-stat-value">4</div></div>
+          <div class="ov-stat"><label>Status</label><div class="ov-stat-value">Public</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPEKTRUM -->
+    <div class="spectrum">
+      <div class="spectrum-axis">
+        <div class="spectrum-mark" style="left: 5%;" data-label="Default-Repo" data-stage="Template · Meta"></div>
+        <div class="spectrum-mark alt" style="left: 26%;" data-label="Kreon-Koch" data-stage="Single-File · Live"></div>
+        <div class="spectrum-mark" style="left: 48%;" data-label="local-mail-ai" data-stage="PoC · Läuft lokal"></div>
+        <div class="spectrum-mark alt" style="left: 70%;" data-label="News Agent" data-stage="Pipeline · 90 %"></div>
+        <div class="spectrum-mark" style="left: 94%;" data-label="Stock-Wise" data-stage="26 k LOC · ~99 %"></div>
+      </div>
+      <div class="spectrum-labels">
+        <span>Methodik · Werkzeug</span>
+        <span>Fokussiert · PoC</span>
+        <span>Komplex · Voller Stack</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VERGLEICHSTABELLE ============ -->
+  <section>
+    <div class="section-header">
+      <div class="section-num">02 — Vergleich</div>
+      <h2 class="section-title">Daten <em>auf einer Seite.</em></h2>
+      <p class="section-lead">
+        Die wichtigsten Kennzahlen nebeneinander. Auffälligste Veränderung seit Mai:
+        drei der vier Anwendungen haben jetzt eine ernstzunehmende Testbasis —
+        zusammen über 1 600 Tests. Nur Kreon-Koch bleibt bewusst der ungetestete Gegenpol.
+      </p>
+    </div>
+
+    <div class="table-scroll">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Kategorie</th>
+            <th><span class="repo-name">Kreon-Koch</span></th>
+            <th><span class="repo-name">Stock-Wise</span></th>
+            <th><span class="repo-name">News Agent</span></th>
+            <th><span class="repo-name">local-mail-ai</span></th>
+            <th><span class="repo-name">Default-Repo</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Lines of Code</td>
+            <td><span class="num-big">845</span></td>
+            <td><span class="num-big">26k</span></td>
+            <td><span class="num-big">2,1k</span></td>
+            <td><span class="num-big">1,1k</span></td>
+            <td><span class="num-big">1,3k</span></td>
+          </tr>
+          <tr>
+            <td>Sprache</td>
+            <td>JavaScript (JSX)</td>
+            <td>TypeScript + Deno TS</td>
+            <td>Python 3.12</td>
+            <td>Python 3.11</td>
+            <td>Shell + Markdown</td>
+          </tr>
+          <tr>
+            <td>Frontend</td>
+            <td>React 18 + Vite</td>
+            <td>React 18 + TS + Vite</td>
+            <td>—</td>
+            <td>— (CLI)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Backend / LLM</td>
+            <td>—</td>
+            <td>Supabase + Edge Functions</td>
+            <td>Google ADK + Gemini 2.5</td>
+            <td>Ollama + Gemma 4 E2B (lokal)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Datenhaltung</td>
+            <td>localStorage</td>
+            <td>Postgres + RLS</td>
+            <td>watchlist.json + ADK-Session</td>
+            <td>Apple Mail / Kalender (read-only)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Tests</td>
+            <td><span class="badge red">keine</span></td>
+            <td><span class="badge green">728</span></td>
+            <td><span class="badge green">459</span></td>
+            <td><span class="badge green">417</span></td>
+            <td>n/a</td>
+          </tr>
+          <tr>
+            <td>CI / CD</td>
+            <td><span class="badge red">keine</span></td>
+            <td><span class="badge green">4 Workflows</span></td>
+            <td><span class="badge green">CI + Docker</span></td>
+            <td><span class="badge green">CI + Secret-Scan</span></td>
+            <td><span class="badge green">Secret-Scan</span></td>
+          </tr>
+          <tr>
+            <td>Merged PRs</td>
+            <td>18</td>
+            <td>202</td>
+            <td>27</td>
+            <td>19</td>
+            <td>7</td>
+          </tr>
+          <tr>
+            <td>Security-Review 05.07.</td>
+            <td>—</td>
+            <td><span class="badge green">✓ PR #210</span></td>
+            <td><span class="badge green">✓ PR #27</span></td>
+            <td><span class="badge green">✓ PR #19</span></td>
+            <td><span class="badge green">✓ PR #7</span></td>
+          </tr>
+          <tr>
+            <td>Reifegrad</td>
+            <td><span class="badge green">Live</span></td>
+            <td><span class="badge green">~99 % · im Einsatz</span></td>
+            <td><span class="badge amber">90 % · vor Deploy</span></td>
+            <td><span class="badge amber">PoC · läuft lokal</span></td>
+            <td><span class="badge green">v1 · Public</span></td>
+          </tr>
+          <tr>
+            <td>Use Case</td>
+            <td>CF-Therapie, Kinder</td>
+            <td>Aktien-Screening</td>
+            <td>Tägliches Morning-Briefing</td>
+            <td>Mail-/Kalender-Triage lokal</td>
+            <td>Projekt-Bootstrap</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ DETAIL TABS ============ -->
+  <section>
+    <div class="section-header">
+      <div class="section-num">03 — Im Detail</div>
+      <h2 class="section-title">Fünf Projekte, <em>fünf Tiefen.</em></h2>
+      <p class="section-lead">
+        Klicken Sie auf das jeweilige Projekt, um Stack, technische Highlights und
+        die zentrale Problemstellung im Detail zu sehen.
+      </p>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab active" onclick="switchTab('kreon')" data-tab="kreon">
+        <span class="tab-num">01</span>Kreon-Koch
+      </button>
+      <button class="tab" onclick="switchTab('stockwise')" data-tab="stockwise">
+        <span class="tab-num">02</span>Stock-Wise
+      </button>
+      <button class="tab" onclick="switchTab('newsagent')" data-tab="newsagent">
+        <span class="tab-num">03</span>News Agent
+      </button>
+      <button class="tab" onclick="switchTab('mailai')" data-tab="mailai">
+        <span class="tab-num">04</span>local-mail-ai
+      </button>
+      <button class="tab" onclick="switchTab('template')" data-tab="template">
+        <span class="tab-num">05</span>Default-Repo
+      </button>
+    </div>
+
+    <!-- ====== KREON ====== -->
+    <div class="tab-panel active" id="panel-kreon">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-name">Kreon-<em>Koch</em></h3>
+          <p class="panel-tagline">
+            „Drill-Trainer für die Pankreas-Enzym-Dosierung — gamifiziert, offline-fähig,
+            und jetzt als eine einzige weitergabefertige HTML-Datei."
+          </p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-cell"><label>LOC gesamt</label><div class="stat-cell-value">845</div><div class="stat-cell-sub">Hauptdatei: 808</div></div>
+          <div class="stat-cell"><label>Lebensmittel</label><div class="stat-cell-value">82</div><div class="stat-cell-sub">mit Fettgehalt</div></div>
+          <div class="stat-cell"><label>Merged PRs</label><div class="stat-cell-value">18</div><div class="stat-cell-sub">Mai: 11</div></div>
+          <div class="stat-cell"><label>Levels</label><div class="stat-cell-value">3</div><div class="stat-cell-sub">progressiv</div></div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Was es macht</div>
+        <div class="content-body">
+          <p>Browser-basiertes Lernspiel, das die <strong>korrekte Dosierung von Kreon-Kapseln</strong>
+          (Pankreas-Enzymersatz) für Lebensmittel und Mahlzeiten trainiert — eine Routineaufgabe,
+          die CF-Patient:innen mehrfach täglich vor jeder Mahlzeit selbst einschätzen müssen.</p>
+          <p>Drei Schwierigkeitsstufen: Einzelzutaten → Kombinationen mit Fett-Meter → komplexe Gerichte.
+          Multiple-Choice (4 Optionen), 3 Leben, Streak-Bonus, Sterne-Bewertung, lokale Top-10-Highscores,
+          TTS-Sprachausgabe für leseschwache Kinder.</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Stack</div>
+        <div class="content-body">
+          <div class="stack-chips">
+            <span class="chip primary">React 18</span>
+            <span class="chip primary">Vite 5</span>
+            <span class="chip primary">vite-plugin-singlefile</span>
+            <span class="chip">JSX</span>
+            <span class="chip">localStorage</span>
+            <span class="chip">Web Speech API</span>
+            <span class="chip">OpenMoji (CDN, mit Fallback)</span>
+            <span class="chip">SVG (handgezeichnet)</span>
+          </div>
+          <p style="margin-top:16px">Bewusst minimal: kein TypeScript, kein State-Framework, kein Backend.
+          <code>npm run build</code> erzeugt <strong>eine einzelne dist/index.html</strong> — Spiel, Schrift und
+          Design komplett eingebettet, läuft per Doppelklick offline auf jedem Rechner.</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Neu seit Mai</div>
+        <div class="content-body">
+          <div class="highlight-box">
+            <h4>Single-File-Build als Weitergabeformat</h4>
+            <p>Der Build bettet alles in eine HTML-Datei ein — verteilbar per E-Mail, USB-Stick oder Download,
+            ohne Installation und ohne Internet. Genau das Format, das für die geplante Weitergabe über den
+            Mukoviszidose e.V. gebraucht wird; die Projektvorstellungs-PDF liegt bereits im Repo.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Layout skaliert automatisch (useFitScale)</h4>
+            <p>Neuer Hook berechnet aus der Fenstergröße einen Zoom-Faktor — das Spiel passt jetzt auf
+            13″-Laptops ebenso wie auf große Monitore und Handys. Verifiziert mit Playwright über fünf
+            Viewports, gegen Dev-Server und Single-File-Build.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>ARCHITEKTUR.md mit Mermaid-Diagrammen</h4>
+            <p>Bausteine, Datenfluss und Screen-Ablauf sind jetzt dokumentiert — die Lücke zwischen
+            „Single-File-Spielzeug" und „Projekt, das jemand anderes weiterpflegen könnte" schließt sich.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid" style="border-bottom:none">
+        <div class="content-label">Bewertung</div>
+        <div class="content-body">
+          <ul>
+            <li><strong>Stärke:</strong> Scope und Implementation passen weiter perfekt zusammen — kein Over-Engineering.</li>
+            <li><strong>Stärke:</strong> Das Auslieferungsformat (eine Datei, offline) ist exakt auf die Zielgruppe zugeschnitten.</li>
+            <li><strong>Schwäche:</strong> Weiterhin keine Tests und keine CI — für den aktuellen Scope okay,
+            wird aber zur Hypothek, sobald der Verein Änderungswünsche liefert. Im Klartext: Jede Änderung
+            muss von Hand durchgespielt werden, es gibt kein Sicherheitsnetz gegen Regressionen.</li>
+            <li><strong>Schwäche:</strong> 808-Zeilen-Hauptdatei mit Inline-Styles — Refactoring-Schuld bei Wachstum.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STOCKWISE ====== -->
+    <div class="tab-panel" id="panel-stockwise">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-name">Stock-Wise <em>Scanner</em></h3>
+          <p class="panel-tagline">
+            „Fünf Indizes, ~660 Ticker, drei Scoring-Strategien — und seit Juni endlich
+            echte Qualitäts-Scores plus Backtest auf Knopfdruck."
+          </p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-cell"><label>Frontend LOC</label><div class="stat-cell-value">15 376</div><div class="stat-cell-sub">TS / TSX</div></div>
+          <div class="stat-cell"><label>Edge LOC</label><div class="stat-cell-value">10 458</div><div class="stat-cell-sub">Deno TS</div></div>
+          <div class="stat-cell"><label>Tests</label><div class="stat-cell-value">728</div><div class="stat-cell-sub">403 Vitest + 325 Deno</div></div>
+          <div class="stat-cell"><label>Merged PRs</label><div class="stat-cell-value">202</div><div class="stat-cell-sub">Mai: 156 Commits</div></div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Was es macht</div>
+        <div class="content-body">
+          <p>Web-basiertes Stock-Screening- und Scoring-Tool. Yahoo Finance als Primärquelle (kein API-Key),
+          Finnhub als optionaler Fallback. Deckt inzwischen <strong>fünf Indizes</strong> ab: S&amp;P 500,
+          NASDAQ-100, DAX, MDAX und — neu — EURO STOXX 50. Berechnet 50+ Kennzahlen von Valuation über
+          Piotroski-F und Altman-Z bis Sharpe Ratio mit echter Risk-Free-Rate pro Währung (FRED / ECB).</p>
+          <p>Scoring nach <strong>Levermann</strong> (jetzt komplett: 16 Kriterien, Score-Range [-16, +16],
+          Cap-Tier-Schwellen), <strong>HGI</strong> und <strong>Dividende</strong> (jetzt 11 Kriterien) — plus
+          ein kombiniertes Gesamt-Verdikt mit Risk-Gates, die weiterhin nur nach unten korrigieren dürfen, nie nach oben.</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Stack</div>
+        <div class="content-body">
+          <div class="stack-chips">
+            <span class="chip primary">React 18</span>
+            <span class="chip primary">TypeScript</span>
+            <span class="chip primary">Vite</span>
+            <span class="chip">Supabase</span>
+            <span class="chip">Postgres + RLS</span>
+            <span class="chip">Edge Functions (Deno)</span>
+            <span class="chip">pg_cron</span>
+            <span class="chip">shadcn/ui</span>
+            <span class="chip">Tailwind</span>
+            <span class="chip">React Query</span>
+            <span class="chip">Recharts</span>
+            <span class="chip">Vercel</span>
+            <span class="chip">GitHub Actions (4 Workflows)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Neu seit Mai</div>
+        <div class="content-body">
+          <div class="highlight-box">
+            <h4>Qualitäts-Scores reaktiviert (AP6, PR #172/#173/#175)</h4>
+            <p>Die ausgehungerten Signale sind über Yahoos <code>fundamentalsTimeSeries</code>-Endpoint zurück:
+            Piotroski F-Score von quasi null auf <strong>591/660</strong> Ticker, Altman Z auf <strong>613/660</strong> —
+            ein Call pro Ticker, kein neuer Datenanbieter. Die Risk-Gates des Gesamt-Verdikts feuern damit
+            zum ersten Mal auf echter Datenbasis. Im Klartext: Vorher stand die Schutzlogik auf dem Papier,
+            jetzt filtert sie tatsächlich riskante Aktien aus den Kauf-Empfehlungen.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Backtest als GitHub-Workflow</h4>
+            <p>Manueller One-off-Lauf des Strategie-Backtests direkt auf einem GitHub-Runner — Report als
+            Job-Summary, herunterladbares Artifact (inkl. SVG-Charts + CSVs) und Commit nach
+            <code>docs/backtest/</code>. Die Strategien lassen sich damit erstmals gegen die Historie prüfen,
+            ohne lokales Setup.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Dividenden-Scorecard komplett + 10 neue Kennzahlen (AP7, PR #170)</h4>
+            <p>Net Debt/EBITDA, FCF-Yield, FCF-Dividendendeckung, Forward-P/E, Beta, 52-Wochen-Abstände,
+            10-Jahres-Dividendenwachstum — alles aus bereits abgerufenen Yahoo-Daten, ohne zusätzliche API-Calls.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Security-Lockdown weitergedreht (PR #210)</h4>
+            <p>Review über die gesamte Codebasis: keine kritischen oder hohen Findings. Der Fix des einzigen
+            relevanten Punkts: Legacy-Grants auf den beiden Per-User-Tabellen entzogen, sodass RLS nicht mehr
+            die einzige Verteidigungslinie gegen den öffentlichen Anon-Key ist. Im Klartext: Selbst wenn
+            jemand versehentlich den Zeilenschutz der Datenbank abschaltet, kommen Fremde nicht an
+            Nutzer-Notizen und Einwilligungsdaten.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid" style="border-bottom:none">
+        <div class="content-label">Tech-Debt</div>
+        <div class="content-body">
+          <ul>
+            <li>StockScreener.tsx (740) und StockDetail.tsx (664) mischen weiterhin Concerns — die beiden größten Komponenten sind seit Mai eher gewachsen.</li>
+            <li>Rate-Limiter vertraut dem client-kontrollierten <code>X-Forwarded-For</code>-Header (Medium-Finding aus dem Review, dokumentiert, bewusst offen).</li>
+            <li><code>fundamentals_quarterly</code>-Tabelle existiert, hat aber keinen Import.</li>
+            <li>Test-Abdeckung ungleichmäßig — ältere Screens kaum gecovered.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== NEWSAGENT ====== -->
+    <div class="tab-panel" id="panel-newsagent">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-name">News <em>Agent</em></h3>
+          <p class="panel-tagline">
+            „Der Spec-First-Skeleton hat geliefert: aus 108 Zeilen Stubs wurden eine
+            funktionierende Drei-Agent-Pipeline mit 459 Tests — 90 % der Kriterien erfüllt."
+          </p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-cell"><label>Code LOC</label><div class="stat-cell-value">~2 130</div><div class="stat-cell-sub">Mai: 108</div></div>
+          <div class="stat-cell"><label>Test LOC</label><div class="stat-cell-value">~6 000</div><div class="stat-cell-sub">459 Tests grün</div></div>
+          <div class="stat-cell"><label>Fortschritt</label><div class="stat-cell-value">90 %</div><div class="stat-cell-sub">38 / 42 Kriterien</div></div>
+          <div class="stat-cell"><label>Merged PRs</label><div class="stat-cell-value">27</div><div class="stat-cell-sub">inkl. Security-Review</div></div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Was es macht</div>
+        <div class="content-body">
+          <p>Multi-Agent-System, das täglich ein <strong>Morning Briefing</strong> zu einer persönlichen
+          Aktien-Watchlist generiert und per E-Mail versendet. Die Pipeline aus dem Mai-Plan ist jetzt real:</p>
+          <ul>
+            <li><strong>Watchlist Reader</strong> — liest watchlist.json (Ticker, Name, ISIN).</li>
+            <li><strong>News Crawler</strong> — sucht via Gemini Grounded Search News der letzten 24 h, filtert und sanitisiert am Ingress.</li>
+            <li><strong>Digest Writer</strong> — fasst zusammen, klassifiziert Sentiment, rendert Markdown + HTML, versendet via Gmail-SMTP.</li>
+          </ul>
+          <p style="margin-top:12px">Orchestrierung als SequentialAgent über Google ADK; State-Sharing über die ADK-Session.
+          Läuft lokal via <code>uv</code> oder als Docker-Container (Multi-Stage, non-root, Secrets nur zur Laufzeit).</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Stack</div>
+        <div class="content-body">
+          <div class="stack-chips">
+            <span class="chip primary">Python 3.12</span>
+            <span class="chip primary">Google ADK</span>
+            <span class="chip primary">Gemini 2.5 Flash</span>
+            <span class="chip">uv (locked)</span>
+            <span class="chip">Ruff</span>
+            <span class="chip">pytest (459)</span>
+            <span class="chip">detect-secrets (3 Ebenen)</span>
+            <span class="chip">Docker</span>
+            <span class="chip">SMTP / Gmail</span>
+            <span class="chip">Cloud Run (geplant)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Neu seit Mai</div>
+        <div class="content-body">
+          <div class="highlight-box">
+            <h4>Phase 1 komplett: die Pipeline funktioniert</h4>
+            <p>Alle 18 Kriterien der Kern-Pipeline erfüllt, dazu 4/5 E-Mail-Versand und 7/8 Polish &amp; Tests.
+            Das Spec-First-Experiment aus dem Mai-Brief hat seine zentrale Frage beantwortet:
+            <strong>Ja, der Ansatz hält</strong> — die Stubs mit vorformulierten Prompts wurden planmäßig zur Implementierung.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Trust-Boundary-Härtung (PR #27)</h4>
+            <p>Web-Inhalte und LLM-Output werden als nicht vertrauenswürdig behandelt: unsichtbare
+            Bidi-/Zero-Width-Zeichen werden am Ingress gestrippt (Display-Spoofing), jeder Link zeigt die
+            echte Ziel-Domain (Phishing-Mitigation), Grounding-URLs werden per Domain-Abgleich zugeordnet.
+            Im Klartext: Eine manipulierte News-Quelle kann in der Morgen-Mail keine Links mehr verstecken,
+            die woandershin führen, als sie behaupten.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Supply-Chain-Disziplin</h4>
+            <p><code>uv.lock</code> als Quelle der Wahrheit mit CI-Check, SHA-gepinnte GitHub Actions,
+            Secret-Scanning auf drei Ebenen (pre-commit, Claude-Hook, CI-Backstop) mit gemeinsamer Baseline.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid" style="border-bottom:none">
+        <div class="content-label">Was noch fehlt</div>
+        <div class="content-body">
+          <ul>
+            <li><strong>2.4</strong> — Manueller Versand-Test: Rendering in Gmail Web + Mobile verifizieren.</li>
+            <li><strong>3.1</strong> — Sentiment-Stichprobe: ≥ 80 % Plausibilität über echte Gemini-Läufe belegen.</li>
+            <li><strong>4.2 / 4.3</strong> — Cloud-Run-Deploy + Cloud Scheduler: erst danach läuft das Briefing wirklich jeden Morgen ohne manuellen Anstoß.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== MAILAI ====== -->
+    <div class="tab-panel" id="panel-mailai">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-name">local-<em>mail-ai</em></h3>
+          <p class="panel-tagline">
+            „Mail- und Kalender-Assistent ohne Cloud: Apple Mail liefert die Daten,
+            Gemma 4 E2B auf dem eigenen M1 denkt — und nichts verlässt den Rechner."
+          </p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-cell"><label>Code LOC</label><div class="stat-cell-value">~1 100</div><div class="stat-cell-sub">+ 9 Prompt-Dateien</div></div>
+          <div class="stat-cell"><label>Tests</label><div class="stat-cell-value">417</div><div class="stat-cell-sub">~4 800 Test-LOC</div></div>
+          <div class="stat-cell"><label>Merged PRs</label><div class="stat-cell-value">19</div><div class="stat-cell-sub">in 9 Tagen</div></div>
+          <div class="stat-cell"><label>CLI-Kommandos</label><div class="stat-cell-value">11</div><div class="stat-cell-sub">alle read-only</div></div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Was es macht</div>
+        <div class="content-body">
+          <p>Lokaler, datensparsamer Assistent für Mail und Kalender als PoC auf einem M1-Mac mit 8 GB.
+          Apple Mail und Apple Kalender liefern lokal gecachte Daten über AppleScript-Bridges an ein
+          Python-CLI, das ein lokales LLM (Ollama) aufruft — <strong>ausschließlich read-only</strong>.</p>
+          <p>11 Kommandos: Posteingang triagieren (wichtig/FYI/Werbung), zusammenfassen mit Action Items,
+          Antwort-Entwürfe, Termine aus Mails erkennen, Tagesbriefing, Konflikte und Kategorien im Kalender
+          (bewusst deterministisch, ohne LLM), Meeting-Vorbereitung aus zugehörigen Mails, Übersetzen,
+          Umformulieren, Notizen ordnen.</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Stack</div>
+        <div class="content-body">
+          <div class="stack-chips">
+            <span class="chip primary">Python 3.11</span>
+            <span class="chip primary">Ollama</span>
+            <span class="chip primary">Gemma 4 E2B (4-bit)</span>
+            <span class="chip">AppleScript / osascript</span>
+            <span class="chip">requests + dotenv</span>
+            <span class="chip">ruff + mypy</span>
+            <span class="chip">pytest (417)</span>
+            <span class="chip">gitleaks</span>
+            <span class="chip">launchd (vorbereitet)</span>
+          </div>
+          <p style="margin-top:16px">Architektur-Kniff („Weg B"): <strong>Apple Mail als Auth-Layer</strong> —
+          die komplette OAuth-Komplexität von Gmail/live.com/web.de erledigt der Mail-Client, das Skript
+          liest nur den lokalen Cache. Kein Token-Handling, keine Cloud-API.</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Technische Highlights</div>
+        <div class="content-body">
+          <div class="highlight-box">
+            <h4>Harte Invarianten statt guter Vorsätze</h4>
+            <p>READ-ONLY (kein Schreibpfad im Code), kein Cloud-LLM im Laufzeitpfad (Loopback-Check lehnt
+            fremde Hosts beim Start ab), keine PII ins Repo, Outputs mit 0600/0700-Rechten ins Repo-Verzeichnis
+            confined. Die Grenzen stehen in CLAUDE.md und werden von Review-Agent, Verify-Hook und CI geprüft.
+            Im Klartext: Das Werkzeug kann konstruktionsbedingt keine Mail versenden und keine Daten in die
+            Cloud schicken — auch nicht aus Versehen.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Prompt-Injection-Mitigation über die ganze Kette</h4>
+            <p>AppleScript-Bridges strippen die internen Record-Trennzeichen (kein Einschleusen gefälschter
+            Mail-Records), Python filtert Steuerzeichen/ANSI-Escapes aus Fremdinhalten und Modell-Output,
+            Prompts markieren Mail-Inhalte explizit als Daten, nicht als Anweisungen. Nach dem Security-Review
+            zusätzlich: <code>allow_redirects=False</code> im Ollama-Client, damit ein gekaperter
+            localhost-Port keine Prompts nach außen umleiten kann.</p>
+          </div>
+          <div class="highlight-box">
+            <h4>Hardware-Disziplin als Architektur-Vorgabe</h4>
+            <p>M1 mit 8 GB ist die harte Grenze: Gemma 4 E2B in 4-bit, <code>num_ctx</code> 8192, Tasks klein
+            und klar abgegrenzt. Kalender-Konflikte und Kategorisierung laufen bewusst deterministisch ohne
+            LLM — das Modell wird nur eingesetzt, wo es wirklich gebraucht wird.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-grid" style="border-bottom:none">
+        <div class="content-label">Bewertung</div>
+        <div class="content-body">
+          <ul>
+            <li><strong>Stärke:</strong> Erster Volltest des Default-Repo-Workflows — von null auf 417 Tests, mypy, CI und Security-Review in neun Tagen.</li>
+            <li><strong>Stärke:</strong> Test-zu-Code-Verhältnis ~4:1; die Sicherheits-Invarianten sind selbst durch Tests abgedeckt (test_security.py).</li>
+            <li><strong>Schwäche:</strong> AppleScript-Bridges sind fragil gegenüber macOS-/Mail-Updates — bekanntes PoC-Risiko.</li>
+            <li><strong>Bewusste Grenze:</strong> Nur privates Setup; für den Übertrag in den Arbeitskontext dokumentiert docs/datenschutz.md die zusätzlichen Pflichten.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== TEMPLATE ====== -->
+    <div class="tab-panel" id="panel-template">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-name">Default-<em>Repo</em></h3>
+          <p class="panel-tagline">
+            „Die Meta-Empfehlung aus dem Mai-Brief, in ein Repo gegossen: der destillierte
+            Workflow aus drei Projekten, per setup.sh in jedes neue kopierbar."
+          </p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-cell"><label>Template-Zeilen</label><div class="stat-cell-value">~1 300</div><div class="stat-cell-sub">Scripts + Agents + Docs</div></div>
+          <div class="stat-cell"><label>Subagents</label><div class="stat-cell-value">4</div><div class="stat-cell-sub">.claude/agents/</div></div>
+          <div class="stat-cell"><label>Secret-Schutz</label><div class="stat-cell-value">4</div><div class="stat-cell-sub">Schichten</div></div>
+          <div class="stat-cell"><label>Sichtbarkeit</label><div class="stat-cell-value">Public</div><div class="stat-cell-sub">einziges öffentliches Repo</div></div>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Was es ist</div>
+        <div class="content-body">
+          <p>Wiederverwendbares Standard-Setup für neue Projekte — explizit destilliert aus Stock-Wise,
+          News Agent und local-mail-ai. <code>setup.sh /pfad/zum/projekt</code> kopiert das komplette
+          Gerüst, ohne existierende Dateien zu überschreiben; danach füllt Claude Code die
+          CLAUDE.md-Platzhalter anhand des Zielprojekts aus.</p>
+          <p>Der <code>--diff</code>-Modus zeigt pro Template-Datei <code>fehlt / identisch / weicht ab</code> —
+          Verbesserungen am Template lassen sich so gezielt in ältere Projekte zurückspielen.
+          Das Template ist damit kein Einmal-Kopierer, sondern ein Synchronisations-Werkzeug.</p>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="content-label">Was drin ist</div>
+        <div class="content-body">
+          <ul>
+            <li><strong>CLAUDE.md-Template</strong> — Projektbeschreibung, Tech-Stack, harte Grenzen, Konventionen, Build-Gates als auszufüllende Struktur.</li>
+            <li><strong>4 Subagents</strong> — requirements-engineer, solution-architect, code-reviewer, qa-engineer; dazu der <code>/feature</code>-Skill, der die Pipeline orchestriert.</li>
+            <li><strong>Hooks</strong> — secret-scan.sh (blockt commit/push mit Secrets), verify.sh (Stop-Hook führt die Projekt-Gates aus), session-start.sh.</li>
+            <li><strong>4-Schichten-Secret-Schutz</strong> — Claude-Hook, gitleaks pre-commit, CI-Workflow als Backstop, GitHub Push Protection.</li>
+            <li><strong>CI-Vorlagen</strong> — ci-node.yml.example und ci-python.yml.example, dazu dependabot.yml und .gitleaks.toml.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="content-grid" style="border-bottom:none">
+        <div class="content-label">Bewertung</div>
+        <div class="content-body">
+          <ul>
+            <li><strong>Stärke:</strong> Der Beweis liegt vor — local-mail-ai ist das erste Projekt, das komplett auf diesem Gerüst entstand, und war in neun Tagen auf Production-PoC-Niveau.</li>
+            <li><strong>Stärke:</strong> Der --diff-Rückkanal macht das Template zur lebenden Infrastruktur statt zur veraltenden Kopiervorlage.</li>
+            <li><strong>Hinweis:</strong> Auch dieses Repo durchlief den eigenen Prozess — 7 gemergte PRs inklusive Review- und Security-Runde. Das Template hält sich an seine eigenen Regeln.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INSIGHTS ============ -->
+  <section>
+    <div class="section-header">
+      <div class="section-num">04 — Was ich daraus mitnehme</div>
+      <h2 class="section-title">Vier <em>Beobachtungen.</em></h2>
+      <p class="section-lead">
+        Was sich in zwei Monaten AI-assistierter Entwicklung verändert hat — gemessen
+        an den eigenen Vorhersagen aus dem Mai-Brief.
+      </p>
+    </div>
+
+    <div class="insight-grid">
+      <div class="insight">
+        <div class="insight-num">01</div>
+        <h3 class="insight-title">Spec-First hat den Belastungstest bestanden</h3>
+        <p class="insight-body">
+          Die offene Frage aus dem Mai — „hält Spec-First, was es verspricht?" — ist beantwortet:
+          Der News Agent ging von <strong>17 % auf 90 %</strong>, exakt entlang des Phasenplans,
+          mit 459 Tests. Und local-mail-ai zeigt den Ansatz von Tag eins: CLAUDE.md mit harten
+          Grenzen zuerst, dann Code — <strong>neun Tage bis zum getesteten PoC</strong>.
+        </p>
+      </div>
+
+      <div class="insight">
+        <div class="insight-num">02</div>
+        <h3 class="insight-title">Der Workflow ist jetzt ein Produkt</h3>
+        <p class="insight-body">
+          Die Meta-Reflexion aus dem Mai-Brief („beim nächsten Projekt starte ich mit CLAUDE.md,
+          Phasenplan und Review-Subagent") ist nicht Vorsatz geblieben, sondern das
+          <strong>Default-Repo</strong> geworden: destilliert aus drei Projekten, mit
+          <code>setup.sh --diff</code> als Rückkanal für Verbesserungen. Neue Projekte starten
+          nicht mehr bei null, sondern beim erprobten Gerüst.
+        </p>
+      </div>
+
+      <div class="insight">
+        <div class="insight-num">03</div>
+        <h3 class="insight-title">Security ist vom Feature zum Querschnitt geworden</h3>
+        <p class="insight-body">
+          Am 5. Juli liefen Security-Reviews über <strong>alle vier aktiven Repos</strong> — Ergebnis:
+          keine kritischen Findings, nur Defense-in-Depth-Härtungen (DB-Grants, Bidi-Stripping,
+          Redirect-Blocking). Das ist der eigentliche Reifegrad-Sprung: Sicherheit wird nicht mehr
+          nachgerüstet, sondern die Invarianten stehen in CLAUDE.md und werden von Hooks und CI erzwungen.
+        </p>
+      </div>
+
+      <div class="insight">
+        <div class="insight-num">04</div>
+        <h3 class="insight-title">Testcode übersteigt Produktivcode — und das ist der Punkt</h3>
+        <p class="insight-body">
+          News Agent ~3:1, local-mail-ai ~4:1 Test- zu Produktivcode; Stock-Wise von 242 auf 728 Tests.
+          AI senkt die Kosten des Testschreibens so weit, dass die Frage nicht mehr „ob" lautet,
+          sondern <strong>welche Tests Wert haben</strong> — Invarianten, Trust-Boundaries, Regressionen.
+          Kreon-Koch bleibt der bewusste Gegenpol: null Tests, weil der Scope es (noch) trägt.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AUSBLICK ============ -->
+  <section>
+    <div class="section-header">
+      <div class="section-num">05 — Wie es weitergeht</div>
+      <h2 class="section-title">Was ich als <em>Nächstes</em> mache.</h2>
+      <p class="section-lead">
+        Konkrete Pläne pro Repo — privat, ehrlich, ohne Roadmap-Theater.
+        Die Mai-Punkte, die noch offen sind, bleiben auf der Liste.
+      </p>
+    </div>
+
+    <div class="recommendations">
+      <div class="rec">
+        <div class="rec-num">01</div>
+        <div class="rec-content">
+          <h4>Kreon-Koch — Vorstellung beim Mukoviszidose e.V.</h4>
+          <p>Der Plan aus dem Mai steht, die Vorbereitung ist weiter: Projektvorstellungs-PDF liegt im Repo,
+          der Single-File-Build ist das perfekte Weitergabeformat (eine Datei, offline, per Doppelklick).
+          Nächster Schritt ist das Gespräch mit dem Verein; dessen Feedback wird eingearbeitet, dann wird
+          das Spiel gespendet und offiziell über den Verein angeboten.</p>
+        </div>
+        <div class="rec-effort">
+          Status<span class="effort-val">Vorbereitet</span>
+          Nächstes<span class="effort-val">Muko e.V.</span>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-num">02</div>
+        <div class="rec-content">
+          <h4>Stock-Wise — Backtest auswerten + Kennzahlen-Review</h4>
+          <p>Das Universum ist mit dem EURO STOXX 50 erweitert, die Backtest-Pipeline steht — jetzt geht es
+          ans Auswerten: liefern Levermann, HGI und Dividende historisch das, was sie versprechen?
+          Parallel bleibt das Angebot des Wirtschaftsprofessors aktuell, die Kennzahlen-Berechnungen
+          gegenzurechnen; dessen Anmerkungen werden systematisch eingearbeitet. Dazu die dokumentierten
+          Rest-Findings (X-Forwarded-For-Rate-Limiter) abarbeiten.</p>
+        </div>
+        <div class="rec-effort">
+          Status<span class="effort-val">Im Einsatz</span>
+          Nächstes<span class="effort-val">Backtest</span>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-num">03</div>
+        <div class="rec-content">
+          <h4>News Agent — die letzten 10 %: Deploy</h4>
+          <p>Vier Kriterien fehlen, alle am Ende der Kette: manueller Versand-Test (Gmail Web + Mobile),
+          Sentiment-Stichprobe über echte Läufe, Cloud-Run-Deploy mit Secrets, Cloud Scheduler.
+          Danach läuft das Morning Briefing jeden Tag von selbst — der Moment, in dem aus dem
+          Projekt ein Dienst wird.</p>
+        </div>
+        <div class="rec-effort">
+          Status<span class="effort-val">90 %</span>
+          Nächstes<span class="effort-val">Cloud Run</span>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-num">04</div>
+        <div class="rec-content">
+          <h4>local-mail-ai — im Alltag bewähren lassen</h4>
+          <p>Der PoC läuft; jetzt entscheidet der tägliche Gebrauch, welche der elf Kommandos wirklich
+          Wert stiften. Das launchd-Beispiel für ein automatisches Morgen-Briefing liegt bereit.
+          Ein Übertrag in den Arbeitskontext passiert bewusst nicht ohne die in docs/datenschutz.md
+          dokumentierten Zusatzpflichten.</p>
+        </div>
+        <div class="rec-effort">
+          Status<span class="effort-val">PoC läuft</span>
+          Nächstes<span class="effort-val">Alltagstest</span>
+        </div>
+      </div>
+
+      <div class="rec">
+        <div class="rec-num">05</div>
+        <div class="rec-content">
+          <h4>Default-Repo — Template lebendig halten</h4>
+          <p>Verbesserungen, die in den Projekten entstehen (bessere Hooks, schärfere Agent-Prompts,
+          neue CI-Bausteine), fließen über <code style="font-family:var(--mono); font-size:12px; background:var(--accent-soft); padding:2px 6px;">setup.sh --diff</code>
+          zurück ins Template und von dort in die älteren Projekte. Das Repo ist öffentlich —
+          es darf gerne kopiert werden.</p>
+        </div>
+        <div class="rec-effort">
+          Status<span class="effort-val">v1 · Public</span>
+          Nächstes<span class="effort-val">Sync-Zyklus</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="footer-grid">
+      <div>
+        <h5>Quellen</h5>
+        Vollständige Klone aller fünf Repositories<br>
+        Repo-Statistiken, PR-Historie, Architektur-Inspektion,<br>
+        REQUIREMENTS-STATUS- und Incident-Dokumente
+      </div>
+      <div>
+        <h5>Methodik</h5>
+        Strukturierte Code-Inspektion<br>
+        LOC- und Test-Zählung pro Bereich<br>
+        CI / CD-Setup-Review<br>
+        Delta-Vergleich zum Brief vom 05. Mai 2026
+      </div>
+      <div>
+        <h5>Hinweis</h5>
+        Fünf private Sideprojekte. Keine Kunden- oder Geschäftsbezüge.<br>
+        Stand: 07. Juli 2026.
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    // Hide all
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    // Show one
+    const panel = document.getElementById('panel-' + name);
+    const tab = document.querySelector('[data-tab="' + name + '"]');
+    if (panel) panel.classList.add('active');
+    if (tab) tab.classList.add('active');
+    // Scroll to tabs section if triggered from overview cards
+    if (event && event.target.closest('.ov-card')) {
+      document.querySelector('.tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+</script>
+
+</body>
+</html>
