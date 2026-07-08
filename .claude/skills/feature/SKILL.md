@@ -16,7 +16,8 @@ und QA — **die Implementierung machst du selbst und delegierst sie nicht**
 alles was Schema + Backend + UI zugleich berührt, oder wenn der User es
 explizit verlangt.
 
-**Nicht nutzen:** Typo oder Einzeiler-Fix (direkt fixen), reines
+**Nicht nutzen:** Typo oder Einzeiler-Fix (direkt fixen), Bugfix oder
+kleines Refactoring mit klarem Ziel (-> `/fix`), reines
 Dependency-Update, fehlender Test für bereits gebauten Code (`qa-engineer`
 direkt aufrufen), Exploration/Q&A (direkt beantworten).
 
@@ -30,7 +31,8 @@ bootstrappe sie NIE als Nebenprodukt eines Feature-Laufs:
    Testdatei im Repo. Fehlt sie, frage den User:
 
    > "Die /feature-Pipeline braucht funktionierende Test-Infrastruktur. Soll
-   > ich die zuerst aufsetzen (eigene Aufgabe), bevor wir das Feature starten?"
+   > ich die zuerst mit `/bootstrap` aufsetzen (eigene Aufgabe), bevor wir
+   > das Feature starten?"
 
 2. **Lint-Gate** — verify.sh, CI und QA linten nur, was existiert. Es braucht
    einen eingerichteten Linter (Node: `lint`-Script in `package.json`;
@@ -38,7 +40,8 @@ bootstrappe sie NIE als Nebenprodukt eines Feature-Laufs:
    `.claude/hooks/verify-project.sh` vorhanden). Fehlt er, frage den User:
 
    > "Das Projekt hat kein Lint-Gate — verify.sh, CI und QA würden ohne
-   > Linter laufen. Soll ich zuerst einen einrichten (eigene Aufgabe)?"
+   > Linter laufen. Soll ich zuerst mit `/bootstrap` einen einrichten
+   > (eigene Aufgabe)?"
 
 ## Slug-Ableitung
 

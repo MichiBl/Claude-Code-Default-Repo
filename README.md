@@ -40,7 +40,10 @@ CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
 │   ├── solution-architect.md    # Spezifikation -> dateigenauer Plan (sonnet)
 │   ├── code-reviewer.md         # Diff vs. Plan, Security, Drift (sonnet)
 │   └── qa-engineer.md           # AC -> echte Tests + Gates (sonnet)
-├── skills/feature/SKILL.md      # /feature — orchestriert die Pipeline
+├── skills/
+│   ├── feature/SKILL.md         # /feature — orchestriert die Pipeline
+│   ├── fix/SKILL.md             # /fix — Fast Lane für Bugfixes (Regressionstest + minimaler Fix)
+│   └── bootstrap/SKILL.md       # /bootstrap — richtet Lint-/Test-Gates in neuen Projekten ein
 └── hooks/
     ├── session-start.sh         # SessionStart-Hook: installiert fehlende Deps (v. a. Web-Sessions)
     ├── verify.sh                # Stop-Hook: Lint/Typecheck/Tests, Stack-Autoerkennung (Node/uv/pip)
@@ -79,6 +82,11 @@ Projekts — deshalb ist die Vorlage sorgfältig auszufüllen, besonders
 **Harte Grenzen** (Review-Verdict BLOCKED bei Verstoß) und
 **Build & Dev Commands** (die verbindlichen Gates für Hook, CI und QA).
 
+Nicht alles braucht die Pipeline: Bugfixes und kleine, klar umrissene
+Änderungen laufen über `/fix` (Ursache -> Regressionstest -> minimaler
+Fix; die Verifikation übernimmt der Stop-Hook). Typos und Einzeiler
+werden direkt gefixt, ganz ohne Skill.
+
 ## Secret-Schutz (Defense in Depth)
 
 | Schicht | greift |
@@ -111,3 +119,5 @@ Scan-Schichten darunter.
    `setup.sh` warnt, wenn er fehlt.
 6. Test-Infrastruktur aufsetzen, falls das Projekt neu ist — die
    `/feature`-Pipeline verweigert den Start ohne (ebenso ohne Lint-Gate).
+   Das erledigt `/bootstrap [stack]` in Claude Code: Linter, Test-Runner
+   mit Smoke-Test und CI in einem Rutsch.
