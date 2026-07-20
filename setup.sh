@@ -154,7 +154,8 @@ echo "  1. CLAUDE.md ausfüllen (alle <PLATZHALTER>) — oder Claude machen lass
 echo "     \"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus.\""
 echo "  2. gitleaks installieren, falls nicht vorhanden (z. B. 'brew install gitleaks')."
 echo "  3. CI-Vorlage aktivieren (siehe Hinweis oben)."
-echo "  4. Auf GitHub: Settings -> Code security -> Secret scanning + Push protection aktivieren,"
-echo "     plus Branch Protection für main mit 'CI' und 'Secret Scan' als Required Checks."
+echo "  4. Serverseitige GitHub-Schalter aktivieren (Dependabot, Secret scanning,"
+echo "     Branch-Ruleset): ./setup-github.sh $TARGET --check \"<CI-Job-Name>\""
+echo "     (braucht 'gh auth login'; Details im README, Abschnitt setup-github.sh)."
 echo
 echo "Update-Check später: ./setup.sh --diff $TARGET"
