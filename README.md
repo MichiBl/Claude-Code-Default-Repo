@@ -15,6 +15,30 @@ git clone https://github.com/MichiBl/Claude-Code-Default-Repo.git
 Existierende Dateien werden nie überschrieben. Danach in Claude Code im
 Zielprojekt: *"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus."*
 
+### Serverseitige GitHub-Einstellungen aktivieren
+
+Branch Protection, Dependabot und Secret scanning sind **Konto-/Repo-
+Einstellungen bei GitHub** — sie können nicht als Datei im Repo leben.
+`setup-github.sh` aktiviert sie per GitHub CLI, so weit Plan und Rechte es
+erlauben (Rest wird gemeldet, nicht abgebrochen):
+
+```bash
+# einmalig: brew install gh && gh auth login
+./Claude-Code-Default-Repo/setup-github.sh /pfad/zum/projekt \
+  --check "lint • typecheck • test (uv)"   # CI-Job-Name(n) des Projekts
+```
+
+Das aktiviert Dependabot alerts + Auto-Fix-PRs, Secret scanning + Push
+protection (falls der Plan es hergibt) und importiert das Branch-Ruleset
+aus `.github/rulesets/main-schutz.json` (PR-Pflicht, Required Status
+Checks, kein Force-Push/Delete auf den Default-Branch). Der
+gitleaks-Check ist im Ruleset vorkonfiguriert; die projektspezifischen
+CI-Job-Namen kommen per `--check` dazu. Ohne `gh` geht es von Hand:
+Settings → Rules → Rulesets → **Import a ruleset** → die JSON-Datei wählen.
+
+Achtung: Auf privaten Repos im Free-Plan speichert GitHub Rulesets, setzt
+sie aber nicht durch — die CI-Gates auf jedem PR gelten unabhängig davon.
+
 ### Bestehende Projekte aktualisieren
 
 ```bash
@@ -53,6 +77,8 @@ CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
 .github/
 ├── dependabot.yml               # hält die SHA-gepinnten Actions aktuell (wöchentlich, gebündelt)
+├── rulesets/
+│   └── main-schutz.json         # Branch-Ruleset-Vorlage (Import via setup-github.sh oder UI)
 └── workflows/
     ├── secret-scan.yml          # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
     ├── ci-node.yml.example      # Lint • tsc • Test • Build  (umbenennen -> ci.yml)
@@ -112,8 +138,9 @@ Scan-Schichten darunter.
 1. `CLAUDE.md`-Platzhalter ausfüllen (macht Claude auf Zuruf).
 2. `ci-*.yml.example` nach `ci.yml` umbenennen und anpassen.
 3. `brew install gitleaks` (einmal pro Maschine).
-4. GitHub: Secret scanning + Push protection aktivieren; Branch Protection
-   mit den Checks `CI` und `Secret Scan` als Required.
+4. `./setup-github.sh /pfad/zum/projekt --check "<CI-Job-Name>"` ausführen
+   (siehe oben) — oder von Hand: Secret scanning + Push protection
+   aktivieren und das Ruleset aus `.github/rulesets/` importieren.
 5. Lint-Gate sicherstellen (Node: `lint`-Script in `package.json`, Python:
    ruff als Dev-Dependency) — ohne Linter laufen verify.sh, CI und QA leer;
    `setup.sh` warnt, wenn er fehlt.
