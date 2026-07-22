@@ -34,6 +34,36 @@ automatisch BLOCKED. Abschnitt löschen, wenn es keine gibt. Beispiele:>
 - <z. B. Keine PII ins Repo: Nutzdaten, Outputs und .env werden nie committet>
 - <z. B. Ressourcen-Limits: Modellgröße, num_ctx, Speicher>
 
+## Arbeitsweise
+
+Verhaltensregeln gegen typische LLM-Fehler. Bei trivialen Aufgaben mit
+Augenmaß anwenden.
+
+**Erst denken, dann coden**
+- Annahmen explizit benennen. Bei Unsicherheit nachfragen statt raten.
+- Mehrdeutigkeiten offenlegen, nicht still eine Variante wählen.
+- Gibt es einen einfacheren Weg, sag es. Begründeter Widerspruch ist erwünscht.
+
+**Einfachheit zuerst**
+- Minimaler Code, der das Problem löst. Nichts Spekulatives.
+- Keine Features über das Verlangte hinaus, keine Abstraktion für
+  Einmal-Code, keine ungefragte „Flexibilität".
+- Kein Error-Handling für unmögliche Fälle.
+- Faustregel: Würde ein Senior das als überkompliziert bezeichnen?
+  Dann vereinfachen.
+
+**Chirurgische Änderungen**
+- Diffs minimal halten: kein Refactoring, keine Formatierung, keine
+  Kommentare an Code, der nicht zur Aufgabe gehört.
+- Bestehenden Stil übernehmen, auch wenn du es anders machen würdest.
+- Nur durch die eigene Änderung verwaiste Imports/Variablen/Funktionen
+  entfernen. Vorhandenen Dead Code nur melden, nicht ungefragt löschen.
+
+**Zielgetriebene Umsetzung**
+- Aufgaben in prüfbare Ziele übersetzen: „Validierung hinzufügen" →
+  „Tests für ungültige Eingaben schreiben, dann grün machen".
+- Bei mehrstufigen Aufgaben kurzen Plan nennen, je Schritt mit Verifikation.
+
 ## Konventionen
 
 - **Sprache**: <z. B. UI-Texte Deutsch, Code + Kommentare Englisch>
@@ -85,8 +115,10 @@ keine Angriffsfläche hat.>
 
 Secret-Schutz (Defense in Depth, generisch eingerichtet):
 0. `permissions.deny` in `.claude/settings.json` blockt direkte Lesezugriffe
-   von Claude auf `.env`-Dateien/Keys (Best-Effort — indirekte Wege sind nicht
-   vollständig abgedeckt; die harten Garantien liefern die Schichten 1–4).
+   von Claude auf `.env`-Dateien/Keys; der Hook
+   `.claude/hooks/protect-secrets.sh` blockt Schreibzugriffe darauf (beides
+   Best-Effort — indirekte Wege sind nicht vollständig abgedeckt; die harten
+   Garantien liefern die Schichten 1–4).
 1. Claude-Hook `.claude/hooks/secret-scan.sh` blockt commit/push mit Secrets.
 2. Git-Hook `.githooks/pre-commit` (gitleaks) blockt lokal jeden Commit.
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.

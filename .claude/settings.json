@@ -40,6 +40,15 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/secret-scan.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-secrets.sh\""
+          }
+        ]
       }
     ],
     "Stop": [

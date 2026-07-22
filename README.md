@@ -71,7 +71,8 @@ CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
 └── hooks/
     ├── session-start.sh         # SessionStart-Hook: installiert fehlende Deps (v. a. Web-Sessions)
     ├── verify.sh                # Stop-Hook: Lint/Typecheck/Tests, Stack-Autoerkennung (Node/uv/pip)
-    └── secret-scan.sh           # PreToolUse-Hook: gitleaks vor git commit/push
+    ├── secret-scan.sh           # PreToolUse-Hook: gitleaks vor git commit/push
+    └── protect-secrets.sh       # PreToolUse-Hook: blockt Edit/Write auf .env-/Secret-Dateien
 .githooks/pre-commit             # gitleaks-Scan bei jedem Commit (auch ohne Claude)
 .gitignore                       # .env, Deps, Build-Artefakte, settings.local.json
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
@@ -118,6 +119,7 @@ werden direkt gefixt, ganz ohne Skill.
 | Schicht | greift |
 |---------|--------|
 | `permissions.deny` in `settings.json` | blockt direkte Lesezugriffe von Claude auf `.env`-Dateien/Keys (Best-Effort, keine Garantie) |
+| Claude-Hook `protect-secrets.sh` | blockt Schreibzugriffe (Edit/Write) von Claude auf dieselben Dateien — Vorlagen wie `.env.example` bleiben editierbar |
 | Claude-Hook `secret-scan.sh` | bevor Claude committet/pusht |
 | Git-Hook `.githooks/pre-commit` | bei jedem lokalen Commit (auch ohne Claude) |
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
@@ -129,9 +131,9 @@ Begründungskommentar in die `.gitleaks.toml`-Allowlist. Die deny-Regeln
 davor decken `.env`-Varianten (auch in Unterordnern), Keys und `secrets/`
 ab — bewusst als Aufzählung statt `.env.*`, damit `.env.example` lesbar
 bleibt und Claude die Vorlage pflegen kann. Eine exotische Variante
-(z. B. `.env.custom`) muss man selbst ergänzen. Die Regeln fangen direkte
-Lesezugriffe ab, sind aber Best-Effort — verlässlich blocken erst die
-Scan-Schichten darunter.
+(z. B. `.env.custom`) muss man selbst ergänzen. Deny-Regeln und
+`protect-secrets.sh` fangen direkte Lese- bzw. Schreibzugriffe ab, sind aber
+Best-Effort — verlässlich blocken erst die Scan-Schichten darunter.
 
 ## Pro Projekt noch zu tun
 
