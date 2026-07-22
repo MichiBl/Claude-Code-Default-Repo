@@ -125,6 +125,14 @@ Secret-Schutz (Defense in Depth, generisch eingerichtet):
 4. GitHub Push Protection (im Repo aktivieren!) blockt serverseitig.
 Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar.
 
+## Roadmap & Offene Punkte
+
+Die zentrale Roadmap liegt in `docs/requirements-status.md`: alle geplanten
+Punkte mit Status und Akzeptanzkriterien, sortiert nach Priorität.
+„Nächster Punkt" heißt: der oberste offene Punkt dort. Nach Abschluss den
+Status dort abhaken (erst nach verifizierten Akzeptanzkriterien) und neue
+Erkenntnisse als neue Punkte ergänzen.
+
 ## Feature-Workflow (Agent-Team)
 
 Nicht-triviale Features laufen über `/feature <beschreibung>` durch die

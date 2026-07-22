@@ -16,6 +16,7 @@
 #   .gitignore      (Secrets, Deps, Build-Artefakte)
 #   .env.example
 #   CLAUDE.md
+#   docs/requirements-status.md   (zentrale Roadmap: Punkte mit Status + AK)
 #
 # Existierende Dateien werden NIE überschrieben — der Konflikt wird gemeldet,
 # Entscheidung bleibt beim Nutzer. Der --diff-Modus ist der Update-Pfad:
@@ -106,6 +107,7 @@ process_file ".gitleaks.toml" ".gitleaks.toml"
 process_file ".gitignore"     ".gitignore"
 process_file ".env.example"   ".env.example"
 process_file "CLAUDE.md"      "CLAUDE.md"
+process_file "docs/requirements-status.md" "docs/requirements-status.md"
 
 if [ "$MODE" = "diff" ]; then
   echo

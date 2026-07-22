@@ -56,6 +56,7 @@ an dieselben Pfade im Zielprojekt.
 
 ```
 CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
+docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzeptanzkriterien
 .env.example                     # Vorlage für lokale Konfiguration (echte Werte nur in .env)
 .claude/
 ├── settings.json                # registriert die Hooks + deny-Regeln gegen .env-/Key-Lesezugriffe
