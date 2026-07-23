@@ -7,6 +7,11 @@
 #   * verify.sh           -> Stop-Gate: rot blockt (exit 2), grün/leer erlaubt
 #   * secret-scan.sh      -> blockt commit mit gestagtem Secret (exit 2)
 #   * .githooks/pre-commit-> blockt gestagtes Secret lokal (exit 1)
+#   * session-start.sh    -> installiert Deps, blockiert die Session NIE (exit 0)
+#   * setup.sh            -> aktiviert ci.yml nach Stack, überschreibt nie
+#   * Agenten-Regeln      -> Struktur-Check: tragende Abschnitte/Regeln der
+#                            Agenten-Dateien sind nicht wegeditiert worden
+#                            (das VERHALTEN der Agenten ist nicht testbar)
 #
 # Motivation: Die Hooks SIND das Produkt dieses Repos, und Shellskripte gehen
 # leise kaputt — ein defektes Gate blockt nichts mehr, meldet sich aber auch
@@ -56,6 +61,30 @@ hook_exit_in() { # hook_exit_in <projektdir> <hook> <payload>
   local rc=0
   printf '%s' "$3" | env CLAUDE_PROJECT_DIR="$1" bash "$2" >/dev/null 2>&1 || rc=$?
   echo "$rc"
+}
+
+hook_run_in() { # hook_run_in <projektdir> <hook> — setzt RC (Exit) und ERR (stderr)
+  RC=0
+  env CLAUDE_PROJECT_DIR="$1" bash "$2" >/dev/null 2>"$TMP/stderr.txt" </dev/null || RC=$?
+  ERR="$(cat "$TMP/stderr.txt" 2>/dev/null || true)"
+}
+
+check_contains() { # check_contains <label> <needle> <text>
+  local label="$1" needle="$2" text="$3"
+  if printf '%s' "$text" | grep -qF -- "$needle"; then
+    echo "  ✓ $label"; PASS=$((PASS + 1))
+  else
+    echo "  ✗ $label — '$needle' nicht gefunden"; FAIL=$((FAIL + 1))
+  fi
+}
+
+check_absent() { # check_absent <label> <needle> <text>
+  local label="$1" needle="$2" text="$3"
+  if printf '%s' "$text" | grep -qF -- "$needle"; then
+    echo "  ✗ $label — '$needle' unerwartet gefunden"; FAIL=$((FAIL + 1))
+  else
+    echo "  ✓ $label"; PASS=$((PASS + 1))
+  fi
 }
 
 mkfix() { # mkfix <name> — frisches Git-Repo als Fixture, Pfad auf stdout
@@ -156,6 +185,97 @@ if command -v gitleaks >/dev/null 2>&1; then
 else
   skip "gitleaks nicht installiert — Scan-Tests übersprungen (CI führt sie aus)."
 fi
+
+# --- session-start.sh ------------------------------------------------------------
+echo "== session-start.sh =="
+SST="$HOOKS/session-start.sh"
+
+d="$TMP/ss-leer"; mkdir -p "$d"
+hook_run_in "$d" "$SST"
+check "leeres Projekt -> No-op, blockiert nie" 0 "$RC"
+
+if command -v npm >/dev/null 2>&1; then
+  d="$TMP/ss-install"; mkdir -p "$d"
+  printf '{}' > "$d/package.json"
+  hook_run_in "$d" "$SST"
+  check "fehlende node_modules lösen Install aus (exit 0)" 0 "$RC"
+  check_contains "Install-Zweig meldet sich auf stderr" "node_modules fehlt" "$ERR"
+
+  d="$TMP/ss-noop"; mkdir -p "$d/node_modules"
+  printf '{}' > "$d/package.json"
+  hook_run_in "$d" "$SST"
+  check "vorhandene node_modules -> No-op" 0 "$RC"
+  check_absent "No-op installiert nicht erneut" "node_modules fehlt" "$ERR"
+
+  d="$TMP/ss-kaputt"; mkdir -p "$d"
+  printf '{kaputt' > "$d/package.json"
+  hook_run_in "$d" "$SST"
+  check "fehlgeschlagener Install blockiert die Session nicht" 0 "$RC"
+  check_contains "Fehlschlag wird gemeldet" "fehlgeschlagen" "$ERR"
+else
+  skip "npm nicht installiert — session-start-Tests übersprungen."
+fi
+
+# --- setup.sh: CI-Aktivierung ------------------------------------------------------
+echo "== setup.sh: CI-Aktivierung =="
+run_setup() { # run_setup <targetdir> — setup.sh still ausführen
+  bash "$ROOT/setup.sh" "$1" >/dev/null 2>&1 || true
+}
+
+d="$TMP/ci-node"; mkdir -p "$d"; printf '{}' > "$d/package.json"
+run_setup "$d"
+rc=0; grep -q "npm ci" "$d/.github/workflows/ci.yml" 2>/dev/null || rc=1
+check "Node-Stack -> ci.yml aktiviert (Node-Job)" 0 "$rc"
+
+d="$TMP/ci-uv"; mkdir -p "$d"; touch "$d/pyproject.toml" "$d/uv.lock"
+run_setup "$d"
+rc=0
+{ grep -q '^  uv:' "$d/.github/workflows/ci.yml" && \
+  ! grep -q '^  pip:' "$d/.github/workflows/ci.yml"; } 2>/dev/null || rc=1
+check "Python mit uv.lock -> nur uv-Job in ci.yml" 0 "$rc"
+
+d="$TMP/ci-pip"; mkdir -p "$d"; touch "$d/requirements.txt"
+run_setup "$d"
+rc=0
+{ grep -q '^  pip:' "$d/.github/workflows/ci.yml" && \
+  ! grep -q '^  uv:' "$d/.github/workflows/ci.yml"; } 2>/dev/null || rc=1
+check "Python ohne uv.lock -> nur pip-Job in ci.yml" 0 "$rc"
+
+d="$TMP/ci-exist"; mkdir -p "$d/.github/workflows"
+echo "# eigene CI" > "$d/.github/workflows/ci.yml"
+printf '{}' > "$d/package.json"
+run_setup "$d"
+rc=0; grep -q "eigene CI" "$d/.github/workflows/ci.yml" || rc=1
+check "existierende ci.yml bleibt unangetastet" 0 "$rc"
+
+d="$TMP/ci-none"; mkdir -p "$d"
+run_setup "$d"
+rc=0; [ ! -e "$d/.github/workflows/ci.yml" ] || rc=1
+check "unbekannter Stack -> keine ci.yml angelegt" 0 "$rc"
+
+# --- Agenten-Regeln (Struktur) -----------------------------------------------------
+# Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
+# sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits
+# nicht versehentlich verloren gehen.
+echo "== Agenten-Regeln (Struktur) =="
+marker() { # marker <datei> <text>
+  if grep -qF -- "$2" "$ROOT/$1"; then
+    echo "  ✓ $1: '$2' vorhanden"; PASS=$((PASS + 1))
+  else
+    echo "  ✗ $1 — Marker '$2' fehlt"; FAIL=$((FAIL + 1))
+  fi
+}
+marker .claude/agents/code-reviewer.md "Verdict"
+marker .claude/agents/code-reviewer.md "Verantwortlichkeits-Schnitt (SRP)"
+marker .claude/agents/code-reviewer.md "Harte Grenzen"
+marker .claude/agents/code-reviewer.md "Reuse Check"
+marker .claude/agents/solution-architect.md "Reused Utilities"
+marker .claude/agents/solution-architect.md "Eine Datei, eine Kernverantwortung"
+marker .claude/agents/requirements-engineer.md "Acceptance Criteria"
+marker .claude/agents/qa-engineer.md "qa-plan.md"
+marker .claude/skills/feature/SKILL.md "GATE 1"
+marker .claude/skills/feature/SKILL.md "GATE 2"
+marker CLAUDE.md "eine Kernverantwortung"
 
 # --- Ergebnis --------------------------------------------------------------------
 echo
