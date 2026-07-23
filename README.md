@@ -126,6 +126,16 @@ werden direkt gefixt, ganz ohne Skill.
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
 | GitHub Push Protection | serverseitig — **pro Repo manuell aktivieren** |
 
+### Selbsttest der Schutz-Hooks
+
+Die Hooks sind das Produkt dieses Repos — und Shellskripte gehen leise kaputt.
+`tests/hook-selftest.sh` prüft deshalb die Exit-Code-Verträge von
+`protect-secrets.sh`, `verify.sh`, `secret-scan.sh` und `.githooks/pre-commit`
+gegen Wegwerf-Fixtures. Der Workflow `.github/workflows/hook-selftest.yml`
+führt ihn auf jedem PR aus — per Repo-Guard **nur in diesem Template-Repo**;
+`setup.sh` kopiert Workflow und Test nicht in Zielprojekte. Lokal:
+`./tests/hook-selftest.sh` (gitleaks-Tests werden ohne gitleaks übersprungen).
+
 Die Scan-Schichten nutzen gitleaks bzw. GitHubs eigenen Scanner; ein
 Binary, keine Sprachabhängigkeit. Falsch-Positive kommen mit
 Begründungskommentar in die `.gitleaks.toml`-Allowlist. Die deny-Regeln
