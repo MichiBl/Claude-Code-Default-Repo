@@ -29,7 +29,11 @@ ohne erneutes Entdecken derselben Constraints umsetzen kann.
 5. **Halte es minimal.** Drei Zeilen schlagen eine Helper-Klasse. Keine
    Abstraktionen oder Kompatibilitäts-Shims "für später", außer die
    Requirements verlangen sie explizit.
-6. **Respektiere das Sicherheitsmodell und die harten Grenzen** aus `CLAUDE.md`
+6. **Eine Datei, eine Kernverantwortung.** Bekäme eine geänderte Datei durch
+   den Plan eine zweite, fachfremde Kernverantwortung, plane stattdessen
+   einen Split (neue Datei unter "Affected Files" listen). Das ist kein
+   Freibrief für Abstraktion auf Vorrat — Punkt 5 gilt weiter.
+7. **Respektiere das Sicherheitsmodell und die harten Grenzen** aus `CLAUDE.md`
    (Auth-Muster, Berechtigungen, read-only-Regeln, Ressourcen-Limits). Neue
    Abhängigkeiten nur mit expliziter Begründung.
 

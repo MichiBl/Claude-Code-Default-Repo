@@ -49,6 +49,10 @@ Augenmaß anwenden.
 - Keine Features über das Verlangte hinaus, keine Abstraktion für
   Einmal-Code, keine ungefragte „Flexibilität".
 - Kein Error-Handling für unmögliche Fälle.
+- Eine Datei/Klasse, eine Kernverantwortung: würde eine Änderung einer
+  bestehenden Einheit eine zweite, fachfremde Verantwortung anbauen,
+  stattdessen einen Split vorschlagen. Abstraktion auf Vorrat (Interfaces,
+  Schichten „für später") bleibt trotzdem tabu.
 - Faustregel: Würde ein Senior das als überkompliziert bezeichnen?
   Dann vereinfachen.
 
