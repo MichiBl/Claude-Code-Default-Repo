@@ -132,16 +132,51 @@ else
   echo "     git -C \"$TARGET\" config core.hooksPath .githooks"
 fi
 
-# Stack-Hinweis für die CI-Vorlage — plus Lint-Gate-Check: ohne Linter im
-# Zielprojekt laufen verify.sh, CI und QA still leer (falsche Sicherheit).
+# CI-Aktivierung: bei erkanntem Stack wird die passende Vorlage direkt als
+# ci.yml geschrieben (statt nur auf das Umbenennen hinzuweisen) — der Fehlmodus
+# "CI vergessen, gar kein Gate" entfällt. Existierende ci.yml wird NIE
+# angetastet. Dazu Lint-Gate-Check: ohne Linter im Zielprojekt laufen
+# verify.sh, CI und QA still leer (falsche Sicherheit).
+activate_ci() { # activate_ci <example-datei> [drop-job]
+  local example="$1" drop="${2:-}"
+  local dest="$TARGET/.github/workflows/ci.yml"
+  mkdir -p "$(dirname "$dest")"
+  {
+    echo "# Aktiviert durch setup.sh aus ${example} — Schritte/Versionen/Pfade"
+    echo "# bei Bedarf an das Projekt anpassen."
+    # Führenden Kommentarblock der Vorlage ("Aktivieren: …") überspringen;
+    # bei Python zusätzlich den nicht passenden Job (uv|pip) entfernen.
+    awk -v drop="$drop" '
+      body == 0 { if ($0 ~ /^#/ || $0 ~ /^[[:space:]]*$/) next; body = 1 }
+      /^  [A-Za-z0-9_-]+:[[:space:]]*$/ { injob = (drop != "" && $0 == "  " drop ":") }
+      injob { next }
+      { print }
+    ' "$SRC/.github/workflows/$example"
+  } > "$dest"
+}
+
 echo
+CI_DEST="$TARGET/.github/workflows/ci.yml"
 if [ -f "$TARGET/package.json" ]; then
-  echo "  ℹ  Node-Projekt erkannt -> .github/workflows/ci-node.yml.example nach ci.yml umbenennen und anpassen."
+  if [ -e "$CI_DEST" ]; then
+    echo "  ℹ  Node-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
+  else
+    activate_ci "ci-node.yml.example"
+    echo "  ✓  Node-Projekt erkannt -> CI aktiviert: .github/workflows/ci.yml (aus ci-node.yml.example)."
+  fi
   if ! grep -q '"lint"' "$TARGET/package.json"; then
     echo "  ⚠  Kein \"lint\"-Script in package.json — verify.sh/CI/QA linten sonst NICHT (z. B. ESLint einrichten)."
   fi
 elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
-  echo "  ℹ  Python-Projekt erkannt -> .github/workflows/ci-python.yml.example nach ci.yml umbenennen, EINEN Job (uv|pip) behalten."
+  if [ -e "$CI_DEST" ]; then
+    echo "  ℹ  Python-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
+  elif [ -f "$TARGET/uv.lock" ]; then
+    activate_ci "ci-python.yml.example" "pip"
+    echo "  ✓  Python-Projekt (uv) erkannt -> CI aktiviert: .github/workflows/ci.yml (uv-Job)."
+  else
+    activate_ci "ci-python.yml.example" "uv"
+    echo "  ✓  Python-Projekt (pip) erkannt -> CI aktiviert: .github/workflows/ci.yml (pip-Job)."
+  fi
   if ! grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
     echo "  ⚠  ruff nicht in den Dependencies — verify.sh/CI/QA linten sonst NICHT (ruff als Dev-Dependency ergänzen)."
   fi
@@ -157,7 +192,8 @@ echo "Nächste Schritte:"
 echo "  1. CLAUDE.md ausfüllen (alle <PLATZHALTER>) — oder Claude machen lassen:"
 echo "     \"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus.\""
 echo "  2. gitleaks installieren, falls nicht vorhanden (z. B. 'brew install gitleaks')."
-echo "  3. CI-Vorlage aktivieren (siehe Hinweis oben)."
+echo "  3. CI prüfen: ci.yml wurde nach Stack-Erkennung automatisch aktiviert —"
+echo "     Schritte/Versionen ans Projekt anpassen (siehe Hinweis oben)."
 echo "  4. Serverseitige GitHub-Schalter aktivieren (Dependabot, Secret scanning,"
 echo "     Branch-Ruleset): ./setup-github.sh $TARGET --check \"<CI-Job-Name>\""
 echo "     (braucht 'gh auth login'; Details im README, Abschnitt setup-github.sh)."

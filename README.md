@@ -83,8 +83,9 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
 │   └── main-schutz.json         # Branch-Ruleset-Vorlage (Import via setup-github.sh oder UI)
 └── workflows/
     ├── secret-scan.yml          # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
-    ├── ci-node.yml.example      # Lint • tsc • Test • Build  (umbenennen -> ci.yml)
-    └── ci-python.yml.example    # ruff • mypy/pip-audit • pytest  (umbenennen -> ci.yml)
+    ├── hook-selftest.yml        # testet die Schutz-Hooks — nur Template-Repo, wird NICHT kopiert
+    ├── ci-node.yml.example      # Lint • tsc • Test • Build  (setup.sh aktiviert sie als ci.yml)
+    └── ci-python.yml.example    # ruff • mypy/pip-audit • pytest  (setup.sh aktiviert uv- ODER pip-Job)
 ```
 
 ### Andere Stacks (Go, Rust, …)
@@ -130,8 +131,13 @@ werden direkt gefixt, ganz ohne Skill.
 
 Die Hooks sind das Produkt dieses Repos — und Shellskripte gehen leise kaputt.
 `tests/hook-selftest.sh` prüft deshalb die Exit-Code-Verträge von
-`protect-secrets.sh`, `verify.sh`, `secret-scan.sh` und `.githooks/pre-commit`
-gegen Wegwerf-Fixtures. Der Workflow `.github/workflows/hook-selftest.yml`
+`protect-secrets.sh`, `verify.sh`, `secret-scan.sh`, `session-start.sh` und
+`.githooks/pre-commit` gegen Wegwerf-Fixtures, dazu die CI-Aktivierung von
+`setup.sh` (Node/uv/pip, nie überschreiben) und per Struktur-Check, dass die
+tragenden Regeln der Agenten-Dateien (Verdict-Schema, SRP-Prüfpunkt,
+Pipeline-Gates) nicht versehentlich wegeditiert wurden — das *Verhalten* der
+Agenten selbst ist nicht deterministisch testbar, nur die Präsenz ihrer
+Anweisungen. Der Workflow `.github/workflows/hook-selftest.yml`
 führt ihn auf jedem PR aus — per Repo-Guard **nur in diesem Template-Repo**;
 `setup.sh` kopiert Workflow und Test nicht in Zielprojekte. Lokal:
 `./tests/hook-selftest.sh` (gitleaks-Tests werden ohne gitleaks übersprungen).
