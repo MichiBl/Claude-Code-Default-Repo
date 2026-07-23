@@ -85,12 +85,14 @@ process_file() {
 }
 
 # Vorlagen-Ordner rekursiv verarbeiten (gleicher Name im Zielprojekt).
+# (hook-selftest.yml ist Template-eigene CI — testet die Hooks DIESES Repos —
+# und wandert nicht in Zielprojekte; dort wäre er toter Ballast.)
 process_tree() {
   local dir="$1"
   while IFS= read -r -d '' f; do
     local rel="${f#"$SRC/$dir"/}"
     process_file "$dir/$rel" "$dir/$rel"
-  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' -print0)
+  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' ! -name 'hook-selftest.yml' -print0)
 }
 
 if [ "$MODE" = "diff" ]; then
