@@ -129,8 +129,10 @@ check "Nicht-Git-Befehl wird durchgewunken" 0 \
 
 if command -v gitleaks >/dev/null 2>&1; then
   # Fake-Key zur Laufzeit zusammensetzen, damit die Secret-Scans dieses Repos
-  # die Testdatei selbst nicht als Fund werten.
-  AWS_FAKE="AKIA""Q3J7X9FQ2P5W8N4Z"
+  # die Testdatei selbst nicht als Fund werten. Der Suffix muss Base32 sein
+  # ([A-Z2-7], wie echte AWS-Keys — gitleaks >= 8.28 matcht nur noch das),
+  # Entropie >= 3 haben und darf nicht auf EXAMPLE enden (Default-Allowlist).
+  AWS_FAKE="AKIA""W7Q2X5J3ZP4TN6FR"
 
   HOT="$(mkfix scanhot)"
   git_t -C "$HOT" commit -q --allow-empty -m init
