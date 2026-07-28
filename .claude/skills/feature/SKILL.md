@@ -119,11 +119,25 @@ Erst wenn Review APPROVED **und** QA grün:
 - Push (`git push -u origin <branch>`), dann PR **als Draft** gegen den
   Default-Branch. PR-Body: Link auf `requirements.md`, Liste der Acceptance
   Criteria, Liste der Testdateien.
+- **Manuelle Prüfschritte in den PR-Body übernehmen.** Lies den Abschnitt
+  "Manuelle Verifikation (MC)" aus `qa-plan.md` und übertrage jeden Eintrag
+  als Checkbox — mit "Tun" und "Erwartet", damit man ihn ohne Umweg über die
+  Artefakte abarbeiten kann:
+
+  ```markdown
+  ## Selbst prüfen, bevor der PR aus dem Draft geht
+  - [ ] **MC-1: <Kurztitel>**
+        Tun: <Befehl/Klickpfad> — Erwartet: <Soll-Ergebnis>
+  ```
+
+  Steht dort "Keine.", schreibe stattdessen "Keine manuelle Prüfung nötig."
+  Erfinde niemals eigene MC-Einträge und lasse keinen weg.
 - **Enthält der Diff Migrationen/Schema-Änderungen**, füge dem PR-Body eine
   Checkbox mit dem manuellen Nach-Merge-Schritt hinzu (z. B. Migration
   anwenden), sofern `CLAUDE.md` sagt, dass Migrationen nicht auto-deployed
   werden.
-- Melde die PR-URL. Frage NICHT ungefragt nach dem Mergen.
+- Melde die PR-URL. Nenne dabei die offenen MC-Punkte als das, was noch auf
+  den User wartet. Frage NICHT ungefragt nach dem Mergen.
 
 ## Eiserne Regeln
 
@@ -136,5 +150,7 @@ Erst wenn Review APPROVED **und** QA grün:
   roten Tests.
 - Review-Schritt nie überspringen: Tests prüfen *Verhalten*, das Review prüft
   *Passung* — beides ist Pflicht vor dem PR.
-- PR ist immer **Draft**.
+- PR ist immer **Draft**. Er verlässt den Draft-Status erst, wenn alle
+  MC-Checkboxen abgehakt sind — das kann nur der User, nie du. Hake sie
+  niemals selbst ab und setze den PR nie selbst auf "Ready for Review".
 - Verletzt irgendetwas eine harte Grenze aus `CLAUDE.md`: stoppen und fragen.

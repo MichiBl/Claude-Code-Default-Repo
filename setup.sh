@@ -3,8 +3,24 @@
 # setup.sh — kopiert das Claude-Code-Default-Setup in ein Zielprojekt.
 #
 # Verwendung:
-#   ./setup.sh /pfad/zum/projekt          # Dateien kopieren (nie überschreiben)
-#   ./setup.sh --diff /pfad/zum/projekt   # nur vergleichen: fehlt/identisch/weicht ab
+#   ./setup.sh /pfad/zum/projekt           # Dateien kopieren (nie überschreiben)
+#   ./setup.sh --diff /pfad/zum/projekt    # nur vergleichen: fehlt/identisch/weicht ab
+#   ./setup.sh --update /pfad/zum/projekt  # NUR den Werkzeug-Kern überschreiben
+#
+# Zwei Sorten Dateien, und der Unterschied ist der Kern des Skripts:
+#
+#   KERN    — der gemeinsame Werkzeugkasten (Agents, Skills, Hooks, .githooks).
+#             Er MUSS in allen Projekten identisch sein: hier gelernte
+#             Verbesserungen sollen überall ankommen. Abweichung = Verfall.
+#             --update überschreibt genau diese Dateien.
+#   PROJEKT — Inhalt, der pro Projekt anders sein MUSS (CLAUDE.md, .gitignore,
+#             settings.json, ci.yml, dependabot.yml, .gitleaks.toml,
+#             requirements-status.md, .env.example). Abweichung ist hier normal
+#             und wird nie überschrieben.
+#
+# Warum die Trennung: Ohne sie meldet --diff bei jedem Projekt Abweichungen in
+# CLAUDE.md & Co. — Rauschen, in dem echter Verfall des Werkzeugkastens
+# untergeht. Genau so sind hier fünf auseinandergelaufene Kopien entstanden.
 #
 # Die Vorlagen liegen im Repo bereits unter ihren verbindlichen Punkt-Namen
 # und werden 1:1 ins Zielprojekt kopiert:
@@ -18,23 +34,24 @@
 #   CLAUDE.md
 #   docs/requirements-status.md   (zentrale Roadmap: Punkte mit Status + AK)
 #
-# Existierende Dateien werden NIE überschrieben — der Konflikt wird gemeldet,
-# Entscheidung bleibt beim Nutzer. Der --diff-Modus ist der Update-Pfad:
-# er zeigt, wo ein bestehendes Projekt vom aktuellen Template abweicht,
-# ohne irgendetwas zu ändern.
+# Im Kopier-Modus werden existierende Dateien NIE überschrieben — der Konflikt
+# wird gemeldet, die Entscheidung bleibt beim Nutzer.
+#
+# Exit-Codes von --diff (damit der Modus als Prüfung taugt):
+#   0 = Werkzeug-Kern deckungsgleich   1 = Kern weicht ab oder fehlt
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MODE="copy"
-if [ "${1:-}" = "--diff" ]; then
-  MODE="diff"
-  shift
-fi
+case "${1:-}" in
+  --diff)   MODE="diff";   shift ;;
+  --update) MODE="update"; shift ;;
+esac
 TARGET="${1:-}"
 
 if [ -z "$TARGET" ] || [ ! -d "$TARGET" ]; then
-  echo "Verwendung: ./setup.sh [--diff] /pfad/zum/projekt  (Verzeichnis muss existieren)" >&2
+  echo "Verwendung: ./setup.sh [--diff|--update] /pfad/zum/projekt  (Verzeichnis muss existieren)" >&2
   exit 1
 fi
 TARGET="$(cd "$TARGET" && pwd)"
@@ -44,6 +61,40 @@ skipped=0
 missing=0
 identical=0
 differs=0
+updated=0
+core_drift=0   # Kern-Dateien, die abweichen oder fehlen (Exit-Code von --diff)
+
+# is_core <dest_rel> -> 0 = Werkzeug-Kern (muss überall identisch sein).
+# Bewusst NICHT im Kern: .claude/settings.json (Projekte ergänzen eigene
+# Permissions/Env), .github/** (ci.yml und dependabot.yml hängen am Stack),
+# .gitleaks.toml (projekteigene Allowlist).
+is_core() {
+  case "$1" in
+    .claude/agents/*|.claude/skills/*|.claude/hooks/*|.githooks/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+update_file() {
+  local src_rel="$1" dest_rel="$2"
+  local dest="$TARGET/$dest_rel"
+  if ! is_core "$dest_rel"; then
+    return 0   # Projekt-Datei: im Update-Modus grundsätzlich unangetastet.
+  fi
+  if cmp -s "$SRC/$src_rel" "$dest" 2>/dev/null; then
+    identical=$((identical + 1))
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  if [ -e "$dest" ]; then
+    cp "$SRC/$src_rel" "$dest"
+    echo "  ↑  aktualisiert: $dest_rel"
+  else
+    cp "$SRC/$src_rel" "$dest"
+    echo "  +  ergänzt:      $dest_rel"
+  fi
+  updated=$((updated + 1))
+}
 
 copy_file() {
   local src_rel="$1" dest_rel="$2"
@@ -62,26 +113,38 @@ copy_file() {
 diff_file() {
   local src_rel="$1" dest_rel="$2"
   local dest="$TARGET/$dest_rel"
+  # (Kein "is_core X && …" am Zeilen-/Funktionsende: ein fehlschlagender
+  # &&-Ausdruck als letzter Befehl liefert Exit 1 und beendet unter `set -e`
+  # das ganze Skript bei der ersten PROJEKT-Datei.)
+  local tag="PROJEKT" core=1
+  if is_core "$dest_rel"; then tag="KERN   "; core=0; fi
   if [ ! -e "$dest" ]; then
-    echo "  ✗  fehlt:      $dest_rel"
+    echo "  ✗  $tag fehlt:      $dest_rel"
     missing=$((missing + 1))
+    if [ "$core" -eq 0 ]; then core_drift=$((core_drift + 1)); fi
   elif cmp -s "$SRC/$src_rel" "$dest"; then
-    echo "  =  identisch:  $dest_rel"
+    echo "  =  $tag identisch:  $dest_rel"
     identical=$((identical + 1))
   else
-    echo "  ~  weicht ab:  $dest_rel"
-    # (|| true: diff meldet Abweichung per Exit-Code 1 — kein Fehler unter pipefail.)
-    diff -u "$SRC/$src_rel" "$dest" 2>/dev/null | sed -n '3,20p' | sed 's/^/       /' || true
+    echo "  ~  $tag weicht ab:  $dest_rel"
+    # Projekt-Dateien weichen erwartungsgemäß ab — der Diff dazu wäre nur
+    # Rauschen. Nur den Kern im Detail zeigen, denn nur der ist Verfall.
+    if is_core "$dest_rel"; then
+      # (|| true: diff meldet Abweichung per Exit-Code 1 — kein Fehler unter pipefail.)
+      diff -u "$SRC/$src_rel" "$dest" 2>/dev/null | sed -n '3,20p' | sed 's/^/       /' || true
+      core_drift=$((core_drift + 1))
+    fi
     differs=$((differs + 1))
   fi
+  return 0   # Abweichung ist ein Befund, kein Fehler — sonst killt `set -e` den Lauf.
 }
 
 process_file() {
-  if [ "$MODE" = "diff" ]; then
-    diff_file "$1" "$2"
-  else
-    copy_file "$1" "$2"
-  fi
+  case "$MODE" in
+    diff)   diff_file   "$1" "$2" ;;
+    update) update_file "$1" "$2" ;;
+    *)      copy_file   "$1" "$2" ;;
+  esac
 }
 
 # Vorlagen-Ordner rekursiv verarbeiten (gleicher Name im Zielprojekt).
@@ -95,11 +158,11 @@ process_tree() {
   done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' ! -name 'hook-selftest.yml' -print0)
 }
 
-if [ "$MODE" = "diff" ]; then
-  echo "Claude Code Default Setup — Vergleich mit $TARGET"
-else
-  echo "Claude Code Default Setup -> $TARGET"
-fi
+case "$MODE" in
+  diff)   echo "Claude Code Default Setup — Vergleich mit $TARGET" ;;
+  update) echo "Claude Code Default Setup — Werkzeug-Kern aktualisieren in $TARGET" ;;
+  *)      echo "Claude Code Default Setup -> $TARGET" ;;
+esac
 echo
 
 process_tree ".claude"
@@ -114,7 +177,26 @@ process_file "docs/requirements-status.md" "docs/requirements-status.md"
 if [ "$MODE" = "diff" ]; then
   echo
   echo "Ergebnis: $identical identisch, $differs abweichend, $missing fehlend."
-  echo "Abweichungen prüfen und gezielt übernehmen — dieses Skript ändert nichts."
+  if [ "$core_drift" -gt 0 ]; then
+    echo
+    echo "⚠  $core_drift Kern-Datei(en) weichen ab oder fehlen — der Werkzeugkasten"
+    echo "   dieses Projekts ist nicht auf dem Stand des Templates."
+    echo "   Übernehmen mit: ./setup.sh --update $TARGET"
+    exit 1
+  fi
+  echo "Werkzeug-Kern ist deckungsgleich. Abweichungen bei PROJEKT-Dateien sind normal."
+  exit 0
+fi
+
+if [ "$MODE" = "update" ]; then
+  chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" 2>/dev/null || true
+  echo
+  echo "Fertig: $updated Kern-Datei(en) aktualisiert, $identical bereits aktuell."
+  echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
+  if [ "$updated" -gt 0 ]; then
+    echo
+    echo "Änderungen vor dem Commit durchsehen: git -C $TARGET diff"
+  fi
   exit 0
 fi
 
