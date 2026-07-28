@@ -295,6 +295,22 @@ check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
 bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
 check "nach --update ist der Kern wieder deckungsgleich" 0 "$rc"
 
+# Ein neu kopierter Hook, den settings.json nicht aufruft, tut nichts — das
+# Projekt sieht aber geschützt aus. --update muss das melden.
+d="$TMP/sync-hook-unverdrahtet"; mkdir -p "$d"
+run_setup "$d"
+python3 - "$d/.claude/settings.json" <<'PY' 2>/dev/null || sed -i.bak 's/protect-secrets\.sh/entfernt.sh/' "$d/.claude/settings.json"
+import json, sys
+p = sys.argv[1]
+s = json.load(open(p))
+s["hooks"]["PreToolUse"] = [h for h in s["hooks"]["PreToolUse"]
+                            if "protect-secrets.sh" not in json.dumps(h)]
+json.dump(s, open(p, "w"), indent=2)
+PY
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
+check_contains "--update warnt vor nicht verdrahtetem Hook" "protect-secrets.sh" "$out"
+check_contains "--update nennt settings.json als Ursache" "settings.json" "$out"
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits

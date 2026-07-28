@@ -75,6 +75,31 @@ is_core() {
   esac
 }
 
+# Hooks sind KERN, ihre Verdrahtung steht aber in .claude/settings.json — einer
+# PROJEKT-Datei, die --update bewusst nicht anfasst. Ein neu dazugekommener Hook
+# liegt sonst still im Verzeichnis und wird nie aufgerufen: der gefährlichste
+# Fehlmodus, weil das Projekt geschützt AUSSIEHT. Deshalb hier explizit melden.
+warn_unwired_hooks() {
+  local settings="$TARGET/.claude/settings.json" hook name unwired=""
+  [ -f "$settings" ] || return 0
+  for hook in "$TARGET/.claude/hooks/"*.sh; do
+    [ -e "$hook" ] || continue
+    name="$(basename "$hook")"
+    [ "$name" = "verify-project.sh" ] && continue   # projekteigenes Gate, wird von verify.sh aufgerufen
+    if ! grep -qF "$name" "$settings"; then
+      unwired="${unwired}${name} "
+    fi
+  done
+  [ -z "$unwired" ] && return 0
+  echo
+  echo "⚠  Nicht verdrahtete Hooks: $unwired"
+  echo "   Die Dateien liegen jetzt in .claude/hooks/, werden aber von"
+  echo "   .claude/settings.json nicht aufgerufen — sie tun also NICHTS."
+  echo "   settings.json ist eine PROJEKT-Datei; Verdrahtung von Hand ergänzen"
+  echo "   (Vorlage: $SRC/.claude/settings.json)."
+  return 0
+}
+
 update_file() {
   local src_rel="$1" dest_rel="$2"
   local dest="$TARGET/$dest_rel"
@@ -193,6 +218,7 @@ if [ "$MODE" = "update" ]; then
   echo
   echo "Fertig: $updated Kern-Datei(en) aktualisiert, $identical bereits aktuell."
   echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
+  warn_unwired_hooks
   if [ "$updated" -gt 0 ]; then
     echo
     echo "Änderungen vor dem Commit durchsehen: git -C $TARGET diff"
