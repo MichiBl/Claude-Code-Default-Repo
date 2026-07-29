@@ -62,6 +62,18 @@ der Modus als Prüfung, nicht nur als Bericht.
 und lässt alles andere in Ruhe. Danach `git diff` im Zielprojekt durchsehen
 und committen.
 
+**Kopiert heißt nicht aktiv.** Zwei Hook-Sorten brauchen eine Verdrahtung, die
+in einer PROJEKT-Datei bzw. in der Git-Config steht — beide Modi melden das:
+
+| Was | Verdrahtung | Verhalten |
+|---|---|---|
+| `.claude/hooks/*.sh` | `.claude/settings.json` | wird **gemeldet**, nie automatisch geändert (dort stehen projekteigene Permissions) |
+| `.githooks/pre-commit` | `git config core.hooksPath` | wird von `--update` **gesetzt**, sofern noch nichts konfiguriert ist; ein eigener Wert bleibt unangetastet und wird nur gemeldet |
+
+Ein Hook, der im Verzeichnis liegt, aber nie aufgerufen wird, ist der
+gefährlichste Zustand — das Projekt sieht geschützt aus und ist es nicht.
+`--diff` wertet einen inaktiven `pre-commit` deshalb wie Kern-Verfall (Exit 1).
+
 Warum die Trennung: Ohne sie meldet `--diff` in jedem Projekt Abweichungen in
 `CLAUDE.md` & Co. — Rauschen, in dem echter Verfall des Werkzeugkastens
 untergeht. Genau so laufen Kopien über Monate auseinander, ohne dass es

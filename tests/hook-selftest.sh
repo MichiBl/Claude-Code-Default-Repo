@@ -311,6 +311,27 @@ out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
 check_contains "--update warnt vor nicht verdrahtetem Hook" "protect-secrets.sh" "$out"
 check_contains "--update nennt settings.json als Ursache" "settings.json" "$out"
 
+# .githooks/pre-commit wird kopiert, läuft aber nur bei gesetztem core.hooksPath.
+# Ohne das fehlt Schicht 2 der Defense-in-Depth still.
+d="$TMP/sync-hookspath"; mkdir -p "$d"; git_t init -q "$d" 2>/dev/null || git -C "$d" init -q
+run_setup "$d"
+git -C "$d" config --unset core.hooksPath 2>/dev/null || true
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "--diff meldet inaktiven pre-commit-Hook (Exit 1)" 1 "$rc"
+check_contains "--diff nennt core.hooksPath" "core.hooksPath" "$out"
+
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".githooks" ] || rc=1
+check "--update aktiviert core.hooksPath" 0 "$rc"
+
+# Eine eigene Hook-Verdrahtung des Projekts ist eine bewusste Entscheidung und
+# darf nicht überschrieben werden.
+git -C "$d" config core.hooksPath .myhooks
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
+check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
+check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits

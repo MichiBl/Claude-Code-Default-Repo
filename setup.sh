@@ -63,6 +63,7 @@ identical=0
 differs=0
 updated=0
 core_drift=0   # Kern-Dateien, die abweichen oder fehlen (Exit-Code von --diff)
+hooks_inert=0  # .githooks/pre-commit liegt da, ist aber nicht aktiviert
 
 # is_core <dest_rel> -> 0 = Werkzeug-Kern (muss überall identisch sein).
 # Bewusst NICHT im Kern: .claude/settings.json (Projekte ergänzen eigene
@@ -97,6 +98,43 @@ warn_unwired_hooks() {
   echo "   .claude/settings.json nicht aufgerufen — sie tun also NICHTS."
   echo "   settings.json ist eine PROJEKT-Datei; Verdrahtung von Hand ergänzen"
   echo "   (Vorlage: $SRC/.claude/settings.json)."
+  return 0
+}
+
+# Zweiter Fall derselben Sorte: .githooks/pre-commit ist KERN und wird kopiert,
+# aber Git ruft ihn nur auf, wenn core.hooksPath darauf zeigt. Ohne das liegt die
+# Secret-Schranke da und tut nichts — Schicht 2 der Defense-in-Depth fehlt still.
+# check_only=1 (für --diff) meldet nur; sonst wird die Verdrahtung gesetzt.
+git_hooks_path() { # git_hooks_path [check_only] -> 0 = aktiv/nichts zu tun, 1 = inaktiv
+  local check_only="${1:-0}" current
+  [ -f "$TARGET/.githooks/pre-commit" ] || return 0
+  if ! git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # Kein Befund, sondern ein noch nicht initialisiertes Projekt: hinweisen,
+    # aber nicht als Verfall werten (sonst ist --diff auf frischen Ordnern rot).
+    echo
+    echo "ℹ  Kein Git-Repo — .githooks/pre-commit bleibt inaktiv. Nach 'git init':"
+    echo "   git -C \"$TARGET\" config core.hooksPath .githooks"
+    return 0
+  fi
+  current="$(git -C "$TARGET" config --get core.hooksPath 2>/dev/null || true)"
+  [ "$current" = ".githooks" ] && return 0
+  if [ -n "$current" ]; then
+    # Eigene Hook-Verdrahtung des Projekts nie überschreiben — nur melden.
+    echo
+    echo "⚠  core.hooksPath zeigt auf '$current', nicht auf .githooks."
+    echo "   .githooks/pre-commit (gitleaks) läuft dadurch NICHT. Unangetastet"
+    echo "   gelassen, weil das eine bewusste Projektentscheidung sein kann."
+    return 1
+  fi
+  if [ "$check_only" = "1" ]; then
+    echo
+    echo "⚠  core.hooksPath ist nicht gesetzt — .githooks/pre-commit (gitleaks)"
+    echo "   liegt im Repo, wird von Git aber nie aufgerufen."
+    echo "   Aktivieren mit: ./setup.sh --update $TARGET"
+    return 1
+  fi
+  git -C "$TARGET" config core.hooksPath .githooks
+  echo "  ✓  git core.hooksPath -> .githooks (Pre-Commit-Secret-Scan jetzt aktiv)"
   return 0
 }
 
@@ -202,6 +240,7 @@ process_file "docs/requirements-status.md" "docs/requirements-status.md"
 if [ "$MODE" = "diff" ]; then
   echo
   echo "Ergebnis: $identical identisch, $differs abweichend, $missing fehlend."
+  git_hooks_path 1 || hooks_inert=1
   if [ "$core_drift" -gt 0 ]; then
     echo
     echo "⚠  $core_drift Kern-Datei(en) weichen ab oder fehlen — der Werkzeugkasten"
@@ -209,6 +248,9 @@ if [ "$MODE" = "diff" ]; then
     echo "   Übernehmen mit: ./setup.sh --update $TARGET"
     exit 1
   fi
+  # Ein inaktiver Secret-Hook ist genauso ein Befund wie eine veraltete Datei:
+  # der Werkzeugkasten ist dann nicht in dem Zustand, den er vorgibt zu haben.
+  [ "$hooks_inert" -eq 1 ] && exit 1
   echo "Werkzeug-Kern ist deckungsgleich. Abweichungen bei PROJEKT-Dateien sind normal."
   exit 0
 fi
@@ -218,6 +260,7 @@ if [ "$MODE" = "update" ]; then
   echo
   echo "Fertig: $updated Kern-Datei(en) aktualisiert, $identical bereits aktuell."
   echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
+  git_hooks_path || true
   warn_unwired_hooks
   if [ "$updated" -gt 0 ]; then
     echo
