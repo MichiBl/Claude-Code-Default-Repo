@@ -42,12 +42,42 @@ sie aber nicht durch — die CI-Gates auf jedem PR gelten unabhängig davon.
 ### Bestehende Projekte aktualisieren
 
 ```bash
-./Claude-Code-Default-Repo/setup.sh --diff /pfad/zum/projekt
+./Claude-Code-Default-Repo/setup.sh --diff   /pfad/zum/projekt   # nur prüfen
+./Claude-Code-Default-Repo/setup.sh --update /pfad/zum/projekt   # Kern übernehmen
 ```
 
-Zeigt pro Template-Datei `fehlt` / `identisch` / `weicht ab` (mit Kurz-Diff),
-ohne etwas zu ändern — Verbesserungen am Template lassen sich so gezielt in
-ältere Projekte übernehmen.
+Dateien zerfallen dafür in zwei Sorten:
+
+| Sorte | Was | Regel |
+|---|---|---|
+| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/` | muss überall identisch sein — Abweichung ist Verfall |
+| **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `ci.yml`, `dependabot.yml`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf und soll abweichen — wird nie überschrieben |
+
+`--diff` zeigt pro Datei `fehlt` / `identisch` / `weicht ab`, den Kurz-Diff
+aber nur für KERN-Dateien (bei PROJEKT-Dateien wäre er reines Rauschen). Der
+Exit-Code ist **1**, sobald eine KERN-Datei abweicht oder fehlt — damit taugt
+der Modus als Prüfung, nicht nur als Bericht.
+
+`--update` überschreibt genau diese KERN-Dateien mit dem Stand des Templates
+und lässt alles andere in Ruhe. Danach `git diff` im Zielprojekt durchsehen
+und committen.
+
+**Kopiert heißt nicht aktiv.** Zwei Hook-Sorten brauchen eine Verdrahtung, die
+in einer PROJEKT-Datei bzw. in der Git-Config steht — beide Modi melden das:
+
+| Was | Verdrahtung | Verhalten |
+|---|---|---|
+| `.claude/hooks/*.sh` | `.claude/settings.json` | wird **gemeldet**, nie automatisch geändert (dort stehen projekteigene Permissions) |
+| `.githooks/pre-commit` | `git config core.hooksPath` | wird von `--update` **gesetzt**, sofern noch nichts konfiguriert ist; ein eigener Wert bleibt unangetastet und wird nur gemeldet |
+
+Ein Hook, der im Verzeichnis liegt, aber nie aufgerufen wird, ist der
+gefährlichste Zustand — das Projekt sieht geschützt aus und ist es nicht.
+`--diff` wertet einen inaktiven `pre-commit` deshalb wie Kern-Verfall (Exit 1).
+
+Warum die Trennung: Ohne sie meldet `--diff` in jedem Projekt Abweichungen in
+`CLAUDE.md` & Co. — Rauschen, in dem echter Verfall des Werkzeugkastens
+untergeht. Genau so laufen Kopien über Monate auseinander, ohne dass es
+jemandem auffällt.
 
 ## Was drin ist
 

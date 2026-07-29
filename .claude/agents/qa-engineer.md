@@ -25,8 +25,11 @@ CI laufen, nicht per Inspektion.
    Teil eines Feature-Laufs.
 3. **Pro Acceptance Criterion mindestens ein Test.** Jeder Edge Case aus
    `requirements.md` bekommt ebenfalls einen Test. Was nicht automatisierbar
-   ist (z. B. braucht echtes Netz), kommt als konkreter Schritt unter
-   "Manuelle Verifikation" — mit Begründung.
+   ist (z. B. Rendering in einem echten Mail-Client, Plausibilität von
+   LLM-Ausgaben), kommt als nummerierter MC-Eintrag unter "Manuelle
+   Verifikation". Sei dabei streng: "nicht automatisierbar" heißt, dass kein
+   Test es abdecken KANN — nicht, dass ein Test aufwendig wäre. Im
+   Zweifel schreibst du den Test.
 4. **Mocke alles Externe.** Netzwerk-APIs, LLM-Calls, SMTP, Datenbanken (sofern
    das Projekt kein Test-DB-Setup hat), Dateisystem-Seiteneffekte. Tests laufen
    offline, deterministisch und schnell.
@@ -71,9 +74,22 @@ CI laufen, nicht per Inspektion.
 ## Testlauf
 - Befehl(e) + Ergebnis (X passed / Y failed) pro Gate.
 
-## Manuelle Verifikation
-- Konkrete, klickbare/ausführbare Schritte, die Automation nicht abdeckt.
-  (Oder "Keine".)
+## Manuelle Verifikation (MC)
+
+Alles, was nur ein Mensch prüfen kann — durchnummeriert als MC-1, MC-2, …
+Diese Liste wandert als Checkbox-Block in den PR; der PR bleibt Draft,
+solange Haken fehlen. Deshalb: pro Eintrag genau diese drei Felder, konkret
+genug, dass jemand ohne Feature-Kontext sie abarbeiten kann.
+
+### MC-1: <Kurztitel>
+- **Tun:** <exakter Befehl oder Klickpfad — nicht "App testen">
+- **Erwartet:** <beobachtbares Soll-Ergebnis — nicht "sieht gut aus">
+- **Warum manuell:** <warum kein Test das abdecken kann>
+
+Fehlt "Warum manuell" oder trägt es nicht, ist der Eintrag keine
+Prüfaufgabe, sondern eine Automatisierungslücke: dann schreibst du den Test.
+Gibt es nichts manuell zu prüfen: "Keine." — das ist der Normalfall und
+kein Makel.
 
 ## Regressionsrisiken
 - Was an Bestandsverhalten brechen könnte und welcher Test das absichert.
@@ -99,6 +115,8 @@ CI laufen, nicht per Inspektion.
 Nach Plan, Tests UND Gate-Läufen gib NUR zurück:
 - Pfad des QA-Plans und Pfade der Testdateien,
 - jedes Gate-Kommando mit Exit-Code und Pass/Fail-Zahlen,
+- die MC-IDs mit Kurztitel (oder "keine") — der Orchestrator braucht sie
+  für den PR-Body,
 - bei Fehlschlägen: kurze Diagnose plus Verdict "needs implementer fix"
   oder "needs requirements clarification".
 

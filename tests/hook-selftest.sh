@@ -253,6 +253,85 @@ run_setup "$d"
 rc=0; [ ! -e "$d/.github/workflows/ci.yml" ] || rc=1
 check "unbekannter Stack -> keine ci.yml angelegt" 0 "$rc"
 
+# --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
+# Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
+# PROJEKT-Dateien (CLAUDE.md & Co.) dürfen und sollen abweichen.
+echo "== setup.sh: --diff / --update =="
+
+d="$TMP/sync-clean"; mkdir -p "$d"
+run_setup "$d"
+bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
+check "frisch aufgesetzt -> --diff meldet keinen Kern-Verfall" 0 "$rc"
+
+# Regression: eine FEHLENDE PROJEKT-Datei darf den Lauf nicht abbrechen.
+# (Ein "is_core X && …" am Funktionsende lieferte Exit 1 und beendete unter
+# `set -e` das Skript beim ersten solchen Treffer — halber Report, Exit 0.)
+d="$TMP/sync-projektluecke"; mkdir -p "$d"
+run_setup "$d"
+rm -f "$d/CLAUDE.md" "$d/.gitignore"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "fehlende PROJEKT-Datei bricht --diff nicht ab" 0 "$rc"
+check_contains "--diff läuft bis zur Zusammenfassung durch" "Ergebnis:" "$out"
+
+# Kern-Verfall: erkennen, dann per --update heilen.
+d="$TMP/sync-kernverfall"; mkdir -p "$d"
+run_setup "$d"
+echo "# lokal verbogen" >> "$d/.claude/agents/code-reviewer.md"
+rm -f "$d/.claude/hooks/verify.sh"
+echo "eigener Inhalt" > "$d/CLAUDE.md"
+bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
+check "Kern-Abweichung -> --diff meldet Exit 1" 1 "$rc"
+
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1; rc=$?
+check "--update läuft durch" 0 "$rc"
+rc=0; cmp -s "$ROOT/.claude/agents/code-reviewer.md" "$d/.claude/agents/code-reviewer.md" || rc=1
+check "--update stellt verbogene Kern-Datei her" 0 "$rc"
+rc=0; cmp -s "$ROOT/.claude/hooks/verify.sh" "$d/.claude/hooks/verify.sh" || rc=1
+check "--update ergänzt fehlende Kern-Datei" 0 "$rc"
+rc=0; [ -x "$d/.claude/hooks/verify.sh" ] || rc=1
+check "--update macht Hooks wieder ausführbar" 0 "$rc"
+rc=0; grep -qx "eigener Inhalt" "$d/CLAUDE.md" || rc=1
+check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
+bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
+check "nach --update ist der Kern wieder deckungsgleich" 0 "$rc"
+
+# Ein neu kopierter Hook, den settings.json nicht aufruft, tut nichts — das
+# Projekt sieht aber geschützt aus. --update muss das melden.
+d="$TMP/sync-hook-unverdrahtet"; mkdir -p "$d"
+run_setup "$d"
+python3 - "$d/.claude/settings.json" <<'PY' 2>/dev/null || sed -i.bak 's/protect-secrets\.sh/entfernt.sh/' "$d/.claude/settings.json"
+import json, sys
+p = sys.argv[1]
+s = json.load(open(p))
+s["hooks"]["PreToolUse"] = [h for h in s["hooks"]["PreToolUse"]
+                            if "protect-secrets.sh" not in json.dumps(h)]
+json.dump(s, open(p, "w"), indent=2)
+PY
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
+check_contains "--update warnt vor nicht verdrahtetem Hook" "protect-secrets.sh" "$out"
+check_contains "--update nennt settings.json als Ursache" "settings.json" "$out"
+
+# .githooks/pre-commit wird kopiert, läuft aber nur bei gesetztem core.hooksPath.
+# Ohne das fehlt Schicht 2 der Defense-in-Depth still.
+d="$TMP/sync-hookspath"; mkdir -p "$d"; git_t init -q "$d" 2>/dev/null || git -C "$d" init -q
+run_setup "$d"
+git -C "$d" config --unset core.hooksPath 2>/dev/null || true
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "--diff meldet inaktiven pre-commit-Hook (Exit 1)" 1 "$rc"
+check_contains "--diff nennt core.hooksPath" "core.hooksPath" "$out"
+
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".githooks" ] || rc=1
+check "--update aktiviert core.hooksPath" 0 "$rc"
+
+# Eine eigene Hook-Verdrahtung des Projekts ist eine bewusste Entscheidung und
+# darf nicht überschrieben werden.
+git -C "$d" config core.hooksPath .myhooks
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
+check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
+check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits
@@ -273,8 +352,11 @@ marker .claude/agents/solution-architect.md "Reused Utilities"
 marker .claude/agents/solution-architect.md "Eine Datei, eine Kernverantwortung"
 marker .claude/agents/requirements-engineer.md "Acceptance Criteria"
 marker .claude/agents/qa-engineer.md "qa-plan.md"
+marker .claude/agents/qa-engineer.md "Manuelle Verifikation (MC)"
+marker .claude/agents/qa-engineer.md "Warum manuell"
 marker .claude/skills/feature/SKILL.md "GATE 1"
 marker .claude/skills/feature/SKILL.md "GATE 2"
+marker .claude/skills/feature/SKILL.md "Selbst prüfen, bevor der PR aus dem Draft geht"
 marker CLAUDE.md "eine Kernverantwortung"
 
 # --- Ergebnis --------------------------------------------------------------------
