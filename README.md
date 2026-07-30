@@ -68,7 +68,13 @@ in einer PROJEKT-Datei bzw. in der Git-Config steht — beide Modi melden das:
 | Was | Verdrahtung | Verhalten |
 |---|---|---|
 | `.claude/hooks/*.sh` | `.claude/settings.json` | wird **gemeldet**, nie automatisch geändert (dort stehen projekteigene Permissions) |
-| `.githooks/pre-commit` | `git config core.hooksPath` | wird von `--update` **gesetzt**, sofern noch nichts konfiguriert ist; ein eigener Wert bleibt unangetastet und wird nur gemeldet |
+| `.githooks/pre-commit` | `git config core.hooksPath` | wird von `--update` **und** von `session-start.sh` gesetzt, sofern noch nichts konfiguriert ist; ein eigener Wert bleibt unangetastet und wird nur gemeldet |
+
+`core.hooksPath` steht in `.git/config` und wird **nicht** mitversioniert — nach
+jedem frischen Klon fehlt sie wieder. Deshalb zieht `session-start.sh` sie bei
+jedem Session-Start nach, genau wie fehlende `node_modules` oder ein leeres
+`.venv`. Ohne das wäre es ein manueller Schritt pro Rechner und pro Klon, den
+zuverlässig niemand macht.
 
 Ein Hook, der im Verzeichnis liegt, aber nie aufgerufen wird, ist der
 gefährlichste Zustand — das Projekt sieht geschützt aus und ist es nicht.
