@@ -12,6 +12,7 @@
 #   * uv.lock + nicht-synctes Env           -> uv sync --locked
 #     (Braucht das Projekt Dev-Extras für die Gates: hier auf
 #      `uv sync --locked --extra dev` anpassen.)
+#   * .githooks/pre-commit ohne core.hooksPath -> Verdrahtung setzen
 #
 # Blockiert NIE die Session: immer exit 0, Meldungen auf stderr.
 
@@ -39,6 +40,20 @@ if [ -f uv.lock ] && command -v uv >/dev/null 2>&1; then
     echo "session-start: uv-Env fehlt/unvollständig — 'uv sync --locked' …" >&2
     uv sync --locked >/dev/null 2>&1 \
       || echo "session-start: 'uv sync --locked' fehlgeschlagen — Gates laufen ggf. nicht." >&2
+  fi
+fi
+
+# --- Git-Hooks verdrahten ---------------------------------------------------------
+# core.hooksPath lebt in .git/config und wird NICHT mitversioniert: nach jedem
+# frischen Klon liegt .githooks/pre-commit (gitleaks) im Repo, ohne dass Git ihn
+# je aufruft — Schicht 2 der Defense-in-Depth fehlt still, das Repo sieht aber
+# geschützt aus. Derselbe Fall wie fehlende node_modules: Zustand pro Klon, den
+# niemand von Hand nachziehen sollte.
+# Ein vom Projekt bewusst gesetzter anderer Wert bleibt unangetastet.
+if [ -f .githooks/pre-commit ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if [ -z "$(git config --get core.hooksPath 2>/dev/null || true)" ]; then
+    git config core.hooksPath .githooks \
+      && echo "session-start: core.hooksPath -> .githooks (Pre-Commit-Secret-Scan aktiviert)." >&2
   fi
 fi
 

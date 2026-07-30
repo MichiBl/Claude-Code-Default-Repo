@@ -216,6 +216,26 @@ else
   skip "npm nicht installiert — session-start-Tests übersprungen."
 fi
 
+# core.hooksPath steht in .git/config und wird nicht mitversioniert — nach jedem
+# frischen Klon muss der Hook sich selbst verdrahten, sonst läuft der
+# Pre-Commit-Secret-Scan nie.
+d="$(mkfix ss-hookspath)"
+mkdir -p "$d/.githooks"; touch "$d/.githooks/pre-commit"
+hook_run_in "$d" "$SST"
+check "session-start blockiert nie (hooksPath-Zweig)" 0 "$RC"
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".githooks" ] || rc=1
+check "session-start verdrahtet core.hooksPath im frischen Klon" 0 "$rc"
+
+git -C "$d" config core.hooksPath .myhooks
+hook_run_in "$d" "$SST"
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
+check "session-start überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
+
+d="$(mkfix ss-ohne-githooks)"
+hook_run_in "$d" "$SST"
+rc=0; [ -z "$(git -C "$d" config --get core.hooksPath || true)" ] || rc=1
+check "ohne .githooks/pre-commit wird nichts gesetzt" 0 "$rc"
+
 # --- setup.sh: CI-Aktivierung ------------------------------------------------------
 echo "== setup.sh: CI-Aktivierung =="
 run_setup() { # run_setup <targetdir> — setup.sh still ausführen
