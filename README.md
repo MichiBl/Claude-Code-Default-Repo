@@ -51,7 +51,7 @@ Dateien zerfallen dafür in zwei Sorten:
 | Sorte | Was | Regel |
 |---|---|---|
 | **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/` | muss überall identisch sein — Abweichung ist Verfall |
-| **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `ci.yml`, `dependabot.yml`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf und soll abweichen — wird nie überschrieben |
+| **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `ci.yml`, `dependabot.yml`, `rulesets/*.json`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf und soll abweichen — wird nie überschrieben |
 
 `--diff` zeigt pro Datei `fehlt` / `identisch` / `weicht ab`, den Kurz-Diff
 aber nur für KERN-Dateien (bei PROJEKT-Dateien wäre er reines Rauschen). Der
@@ -87,8 +87,10 @@ jemandem auffällt.
 
 ## Was drin ist
 
-Der Baum unten zeigt alle Dateien — `setup.sh` kopiert sie unverändert
-an dieselben Pfade im Zielprojekt.
+Der Baum unten zeigt alles, was `setup.sh` unverändert an dieselben Pfade
+im Zielprojekt kopiert (Ausnahmen sind im Baum markiert). Die Skripte selbst
+(`setup.sh`, `setup-github.sh`) und `tests/hook-selftest.sh` bleiben in
+diesem Repo.
 
 ```
 CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
@@ -106,11 +108,13 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
 │   ├── fix/SKILL.md             # /fix — Fast Lane für Bugfixes (Regressionstest + minimaler Fix)
 │   └── bootstrap/SKILL.md       # /bootstrap — richtet Lint-/Test-Gates in neuen Projekten ein
 └── hooks/
-    ├── session-start.sh         # SessionStart-Hook: installiert fehlende Deps (v. a. Web-Sessions)
+    ├── session-start.sh         # SessionStart-Hook: fehlende Deps + core.hooksPath (v. a. Web-Sessions)
     ├── verify.sh                # Stop-Hook: Lint/Typecheck/Tests, Stack-Autoerkennung (Node/uv/pip)
     ├── secret-scan.sh           # PreToolUse-Hook: gitleaks vor git commit/push
     └── protect-secrets.sh       # PreToolUse-Hook: blockt Edit/Write auf .env-/Secret-Dateien
-.githooks/pre-commit             # gitleaks-Scan bei jedem Commit (auch ohne Claude)
+.githooks/
+├── pre-commit                   # gitleaks-Scan bei jedem Commit (auch ohne Claude)
+└── README.md                    # Aktivierung + Schichtenübersicht für dieses Verzeichnis
 .gitignore                       # .env, Deps, Build-Artefakte, settings.local.json
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
 .github/
@@ -142,6 +146,27 @@ grün, exit 2 + stderr = Claude muss nachbessern).
 5. **qa-engineer** -> `qa-plan.md` + echte Tests, Gates grün
 6. **Draft-PR** mit verlinkten Artefakten
 
+### Manuelle Prüfschritte (MC)
+
+Was kein Test abdecken *kann* — Rendering in einem echten Mail-Client,
+Plausibilität einer LLM-Ausgabe — landet nicht im Nirwana, sondern als
+nummerierter MC-Eintrag im `qa-plan.md`, mit **Tun**, **Erwartet** und
+**Warum manuell**. Trägt „Warum manuell" nicht, ist der Eintrag keine
+Prüfaufgabe, sondern eine Automatisierungslücke — dann schreibt die QA den
+Test. Der Normalfall ist „Keine."
+
+Der Draft-PR übernimmt diese Einträge als Checkbox-Block:
+
+```markdown
+## Selbst prüfen, bevor der PR aus dem Draft geht
+- [ ] **MC-1: <Kurztitel>**
+      Tun: <Befehl/Klickpfad> — Erwartet: <Soll-Ergebnis>
+```
+
+Diese Haken setzt **nur der Mensch**. Claude hakt nie selbst ab und nimmt
+den PR nie selbst aus dem Draft-Status — der Draft ist damit das Gate für
+genau das, was Automatisierung nicht verifizieren kann.
+
 Alle Agents lesen die Projekt-Spezifika aus der `CLAUDE.md` des jeweiligen
 Projekts — deshalb ist die Vorlage sorgfältig auszufüllen, besonders
 **Harte Grenzen** (Review-Verdict BLOCKED bei Verstoß) und
@@ -161,7 +186,7 @@ werden direkt gefixt, ganz ohne Skill.
 | Claude-Hook `secret-scan.sh` | bevor Claude committet/pusht |
 | Git-Hook `.githooks/pre-commit` | bei jedem lokalen Commit (auch ohne Claude) |
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
-| GitHub Push Protection | serverseitig — **pro Repo manuell aktivieren** |
+| GitHub Push Protection | serverseitig — `setup-github.sh` aktiviert sie, soweit Plan und Rechte es hergeben (sonst manuell) |
 
 ### Selbsttest der Schutz-Hooks
 
@@ -191,7 +216,10 @@ Best-Effort — verlässlich blocken erst die Scan-Schichten darunter.
 ## Pro Projekt noch zu tun
 
 1. `CLAUDE.md`-Platzhalter ausfüllen (macht Claude auf Zuruf).
-2. `ci-*.yml.example` nach `ci.yml` umbenennen und anpassen.
+2. `ci.yml` prüfen und ans Projekt anpassen — bei erkanntem Stack (Node,
+   Python mit/ohne uv) hat `setup.sh` sie schon aus der passenden
+   `ci-*.yml.example` erzeugt; nur bei unerkanntem Stack ist das Umbenennen
+   von Hand nötig.
 3. `brew install gitleaks` (einmal pro Maschine).
 4. `./setup-github.sh /pfad/zum/projekt --check "<CI-Job-Name>"` ausführen
    (siehe oben) — oder von Hand: Secret scanning + Push protection

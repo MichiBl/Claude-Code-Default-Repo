@@ -142,7 +142,14 @@ Erkenntnisse als neue Punkte ergänzen.
 Nicht-triviale Features laufen über `/feature <beschreibung>` durch die
 Pipeline requirements-engineer → solution-architect → Implementierung
 (Haupt-Agent) → code-reviewer → qa-engineer → Draft-PR. Artefakte liegen
-unter `docs/features/<slug>/`. Bugfixes und kleine, klar umrissene
+unter `docs/features/<slug>/`.
+
+Was kein Test abdecken kann, wird im `qa-plan.md` als nummerierter
+MC-Eintrag festgehalten (Tun / Erwartet / Warum manuell) und wandert als
+Checkbox-Block in den PR-Body. Diese Haken setzt nur der Mensch: Claude hakt
+nie selbst ab und nimmt den PR nie selbst aus dem Draft-Status.
+
+Bugfixes und kleine, klar umrissene
 Änderungen laufen über `/fix <beschreibung>` (Regressionstest + minimaler
 Fix, ohne Pipeline-Gates). Kleinigkeiten (Typos, Einzeiler) direkt fixen.
 Fehlen Lint-/Test-Gates (neues Projekt), richtet `/bootstrap [stack]` sie ein.
