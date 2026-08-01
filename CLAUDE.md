@@ -203,9 +203,12 @@ Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
 
 ## Known Issues & Technical Debt
 
-- `astral-sh/setup-uv` in `ci-python-*.yml.example` steht auf v4.2.0
-  (Nov 2024). Dependabot fasst `*.yml.example` nicht an; ein Bump über fünf
-  Major-Versionen braucht einen Test in einem echten Python-Zielprojekt.
+- Die Pins in `*.yml.example` altern still: Dependabot parst diese Dateien
+  nicht, hebt also nur `secret-scan.yml` und `hook-selftest.yml`. Die
+  Selbsttest-Assertion „gleiche Action → gleicher SHA" fängt das nur für
+  Actions, die in beiden Sorten vorkommen (`actions/checkout`). `setup-node`,
+  `setup-python` und `setup-uv` stehen nur in Vorlagen — die muss man von Hand
+  gegen die Upstream-Tags prüfen. Zuletzt geschehen: 2026-08-01.
 - Die Agenten-Tests im Selbsttest prüfen nur Struktur-Marker, nicht Verhalten
   — LLM-Ausgaben sind deterministisch nicht prüfbar.
 - `setup.sh --diff` erkennt Kern-Verfall nur, wenn es jemand ausführt.
