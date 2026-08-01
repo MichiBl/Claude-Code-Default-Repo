@@ -129,6 +129,12 @@ Augenmaß anwenden.
   Dependabot parst `*.yml.example` NICHT — hebt es die aktiven Workflows,
   müssen die Vorlagen von Hand nachgezogen werden. Der Selbsttest erzwingt
   das (gleiche Action → gleicher SHA über alle Workflows).
+- **Dependabot-`cooldown`**: jeder `package-ecosystem`-Block in
+  `.github/dependabot.yml` trägt einen — auch die auskommentierten Vorlagen,
+  die sonst beim Aktivieren ohne Wartezeit starten. Er deckt den einen Fall ab,
+  den weder Audit noch CVE-Alert sehen: ein kompromittiertes Release am Tag
+  seiner Veröffentlichung. Security-Updates sind ausgenommen und kommen
+  weiterhin sofort. Der Selbsttest erzwingt die Anwesenheit, nicht die Tage.
 
 ## Build & Dev Commands
 
