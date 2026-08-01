@@ -62,6 +62,14 @@ der Modus als Prüfung, nicht nur als Bericht.
 und lässt alles andere in Ruhe. Danach `git diff` im Zielprojekt durchsehen
 und committen.
 
+**Damit es jemand merkt.** `--diff` hilft nur, wenn man es ausführt — mit
+einem lokalen Klon beider Repos. Über mehrere Projekte hinweg passiert das
+erfahrungsgemäß nicht, und dann laufen die Kopien wieder auseinander. Deshalb
+liegt im Zielprojekt `.github/workflows/core-drift.yml.example`: einmal nach
+`core-drift.yml` umbenennen, und der Workflow klont wöchentlich das Template,
+fährt `setup.sh --diff .` und wird bei Kern-Verfall rot. Rot heißt dort nicht
+„kaputt", sondern „Kern veraltet" — beheben mit `./setup.sh --update .`.
+
 **Kopiert heißt nicht aktiv.** Zwei Hook-Sorten brauchen eine Verdrahtung, die
 in einer PROJEKT-Datei bzw. in der Git-Config steht — beide Modi melden das:
 
@@ -133,6 +141,7 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
 │   └── main-schutz.json         # Branch-Ruleset-Vorlage (Import via setup-github.sh oder UI)
 └── workflows/
     ├── secret-scan.yml          # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
+    ├── core-drift.yml.example   # meldet wöchentlich, wenn der Kern veraltet ist (umbenennen)
     ├── hook-selftest.yml        # testet die Schutz-Hooks — nur Template-Repo, wird NICHT kopiert
     ├── ci-node.yml.example      # Lint • tsc • Test • Build  (setup.sh aktiviert sie als ci.yml)
     └── ci-python.yml.example    # ruff • mypy/pip-audit • pytest  (setup.sh aktiviert uv- ODER pip-Job)

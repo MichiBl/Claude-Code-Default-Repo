@@ -332,6 +332,10 @@ check "Zielprojekt bekommt die Platzhalter-Vorlage, nicht diesen Kontext" 0 "$rc
 rc=0; cmp -s "$ROOT/templates/CLAUDE.md" "$d/CLAUDE.md" || rc=1
 check "kopierte CLAUDE.md ist byte-identisch zu templates/CLAUDE.md" 0 "$rc"
 
+# Die Drift-Vorlage nuetzt nur im Zielprojekt — sie muss dort ankommen.
+rc=0; [ -e "$d/.github/workflows/core-drift.yml.example" ] || rc=1
+check "core-drift.yml.example wandert ins Zielprojekt" 0 "$rc"
+
 # --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
 # Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
 # PROJEKT-Dateien (CLAUDE.md & Co.) dürfen und sollen abweichen.
