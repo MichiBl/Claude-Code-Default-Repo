@@ -4,6 +4,14 @@
 #
 # `day` bleibt gesetzt: ohne den Schlüssel verteilt GitHub die Läufe selbst
 # über die Woche, und die Repos laufen an unterschiedlichen Tagen.
+#
+# `cooldown` überspringt frisch veröffentlichte Versionen. Der Fehlmodus dahinter
+# ist NICHT eine bekannte Lücke, sondern das Gegenteil: wird eine Paketversion
+# kompromittiert, gibt es dafür tagelang keinen CVE-Eintrag — das Audit schweigt,
+# die CI ist grün, und Dependabot macht brav einen PR darauf. Die meisten solchen
+# Vorfälle fliegen innerhalb einer Woche auf. GitHub wartet seit 14.07.2026 von
+# sich aus 3 Tage; 7 kosten bei wöchentlichen Läufen praktisch nichts mehr.
+# Security-Updates (CVE) sind davon ausgenommen und kommen weiterhin sofort.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -11,6 +19,8 @@ updates:
     schedule:
       interval: weekly
       day: friday
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -22,9 +32,13 @@ updates:
   #   schedule:
   #     interval: weekly
   #     day: friday
+  #   cooldown:
+  #     default-days: 7
   #
   # - package-ecosystem: pip        # bei uv.lock stattdessen: uv
   #   directory: /
   #   schedule:
   #     interval: weekly
   #     day: friday
+  #   cooldown:
+  #     default-days: 7

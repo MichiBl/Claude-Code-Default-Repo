@@ -475,6 +475,22 @@ $(find "$ROOT/.github/workflows" -type f \( -name '*.yml' -o -name '*.yml.exampl
 EOF
 check "jeder Pin trägt einen Versionskommentar" 0 "$rc"
 
+# --- .github/dependabot.yml: cooldown ----------------------------------------------
+# Ein kompromittiertes Release hat am Erscheinungstag noch keinen CVE-Eintrag:
+# das Audit schweigt, die CI ist grün, und Dependabot macht brav einen PR darauf.
+# `cooldown` ist die einzige Schicht, die diesen Fall abdeckt. Die Assertion hält
+# ihn in der Vorlage fest, die jedes neue Projekt erbt — auch in den
+# auskommentierten npm/pip-Blöcken, die beim Aktivieren sonst ohne Wartezeit
+# starten. Sie prüft nur die Anwesenheit; die Zahl der Tage ist Projektsache.
+echo "== .github/dependabot.yml: cooldown =="
+
+dbot="$ROOT/.github/dependabot.yml"
+n_eco="$(grep -cE '^[[:space:]]*#?[[:space:]]*- package-ecosystem:' "$dbot")"
+n_cool="$(grep -cE '^[[:space:]]*#?[[:space:]]*cooldown:' "$dbot")"
+rc=0; { [ "$n_eco" -gt 0 ] && [ "$n_eco" -eq "$n_cool" ]; } || rc=1
+check "jeder package-ecosystem-Block hat cooldown" 0 "$rc"
+[ "$rc" -eq 0 ] || printf '      %s Ökosystem-Blöcke, aber %s cooldown\n' "$n_eco" "$n_cool"
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits
