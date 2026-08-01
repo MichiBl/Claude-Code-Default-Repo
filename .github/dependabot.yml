@@ -1,12 +1,16 @@
 # Dependabot — hält die SHA-gepinnten GitHub Actions aktuell.
 # Ohne dieses File veralten die Pins in den Workflows still (keine Security-
-# Updates, keine neuen Versionen). PRs kommen wöchentlich, gebündelt.
+# Updates, keine neuen Versionen). PRs kommen wöchentlich freitags, gebündelt.
+#
+# `day` bleibt gesetzt: ohne den Schlüssel verteilt GitHub die Läufe selbst
+# über die Woche, und die Repos laufen an unterschiedlichen Tagen.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: friday
     groups:
       actions:
         patterns: ["*"]
@@ -17,8 +21,10 @@ updates:
   #   directory: /
   #   schedule:
   #     interval: weekly
+  #     day: friday
   #
-  # - package-ecosystem: pip
+  # - package-ecosystem: pip        # bei uv.lock stattdessen: uv
   #   directory: /
   #   schedule:
   #     interval: weekly
+  #     day: friday
