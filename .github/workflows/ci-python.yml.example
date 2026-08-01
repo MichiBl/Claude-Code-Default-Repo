@@ -56,6 +56,10 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Audit dependencies for known CVEs
+        # Hartes Gate. Setzt voraus, dass pip-audit als Dev-Dependency im
+        # Projekt steht (`[dependency-groups] dev` bzw. `[project.optional-
+        # dependencies] dev`) — `uv run` installiert nichts nach, der Step
+        # scheitert sonst mit "command not found" statt mit einem Finding.
         run: uv run pip-audit --strict
 
       - name: Tests (pytest)

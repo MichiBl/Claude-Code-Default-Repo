@@ -49,6 +49,14 @@ jobs:
         run: npm audit signatures
         continue-on-error: true
 
+      - name: Audit dependencies for known CVEs
+        # Hartes Gate — Gegenstück zu `pip-audit --strict` in der Python-Vorlage.
+        # --omit=dev, weil transitive devDependency-Advisories ohne verfügbaren
+        # Fix der Hauptgrund sind, warum `npm audit` als Gate abgeschaltet wird;
+        # ausgeliefert werden die Production-Deps. Schwelle "high": moderate
+        # Findings sind zu häufig, um einen Merge zu blockieren.
+        run: npm audit --audit-level=high --omit=dev
+
       - name: Lint
         run: npm run lint
 
