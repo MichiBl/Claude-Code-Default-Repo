@@ -48,5 +48,26 @@ jobs:
           install -m 0755 gitleaks /usr/local/bin/gitleaks
           gitleaks version
 
+      - name: Static analysis (shellcheck)
+        # Das Produkt dieses Repos sind Shellskripte, und der Selbsttest prüft
+        # nur Exit-Code-Verträge — ungequotete Expansionen, tote Zuweisungen
+        # oder in Pipes verschluckte Exit-Codes sieht er nicht.
+        # Schwelle "warning": darunter liegt bei shellcheck vor allem Stilistik.
+        # Aus dem Ubuntu-Paket statt aus einer Third-Party-Action — eine
+        # unvertraute Abhängigkeit weniger, gleiche Begründung wie bei gitleaks
+        # in secret-scan.yml.
+        # ACHTUNG: shellcheck kennt kein Bash-3.2-Ziel. Die Kompatibilität, auf
+        # die dieses Repo festgelegt ist, prüft dieser Step NICHT.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck --version
+          shellcheck -s bash -S warning \
+            .claude/hooks/*.sh \
+            .githooks/pre-commit \
+            setup.sh setup-github.sh \
+            tests/hook-selftest.sh
+
       - name: Run hook selftest
         run: ./tests/hook-selftest.sh
