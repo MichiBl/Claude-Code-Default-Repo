@@ -63,9 +63,15 @@ fi
 
 BASE="$(basename "$FILE")"
 
-# Vorlagen ohne echte Werte bleiben editierbar.
+# Vorlagen ohne echte Werte bleiben editierbar — bewusst nur .env.example.
+# .env.dist/.env.template standen hier ebenfalls, waren aber weder in
+# .gitignore negiert noch in der .gitleaks.toml-Allowlist: Claude durfte sie
+# pflegen, committet wurden sie nie. Jeder zusätzliche Vorlagenname
+# vergrößert außerdem den in .gitleaks.toml dokumentierten blinden Fleck
+# (Vorlagen sind von allen gitleaks-Schichten ausgenommen). Wer .env.dist
+# braucht, ergänzt ihn hier UND in .gitignore UND in .gitleaks.toml.
 case "$BASE" in
-  .env.example|.env.dist|.env.template) exit 0 ;;
+  .env.example) exit 0 ;;
 esac
 
 # Gleiche Abdeckung wie die deny-Regeln in settings.json.

@@ -126,6 +126,8 @@ check ".env.production wird geblockt"      2 "$(hook_exit "$PS" "$(payload_write
 check "Key-Datei (*.pem) wird geblockt"    2 "$(hook_exit "$PS" "$(payload_write /proj/certs/server.pem)")"
 check "secrets/-Pfad wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write /proj/secrets/sa.json)")"
 check ".env.example bleibt editierbar"     0 "$(hook_exit "$PS" "$(payload_write /proj/.env.example)")"
+check ".env.dist wird geblockt"            2 "$(hook_exit "$PS" "$(payload_write /proj/.env.dist)")"
+check ".env.template wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write /proj/.env.template)")"
 check "normale Quelldatei bleibt erlaubt"  0 "$(hook_exit "$PS" "$(payload_write /proj/src/app.ts)")"
 check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
 
