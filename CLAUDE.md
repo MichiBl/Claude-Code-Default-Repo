@@ -1,38 +1,79 @@
 # CLAUDE.md
 
 Kontextdatei für Claude Code. Vor jeder Aufgabe lesen.
-<!-- Alle <PLATZHALTER> ausfüllen; nicht zutreffende Abschnitte löschen,
-     nicht leer stehen lassen. -->
+
+<!-- Das hier ist der Kontext DIESES Repos. Die auszuliefernde Vorlage mit
+     <PLATZHALTERN> liegt unter templates/CLAUDE.md — dorthin gehören
+     Änderungen an dem, was Zielprojekte bekommen. -->
 
 ## Projektbeschreibung
 
-<WAS das Projekt ist, für WEN, und was es KONKRET tut — 2 bis 4 Sätze.
-Beispiel: "X ist ein web-basiertes Tool, das Daten aus A importiert,
-B berechnet und C anzeigt.">
+Claude-Code-Default-Setup: ein wiederverwendbarer Werkzeugkasten, den man per
+`./setup.sh <ziel>` in ein anderes Projekt kopiert. Er bringt dorthin
+Agenten-Definitionen, Skills, Schutz-Hooks gegen Secret-Leaks, CI-Vorlagen und
+eine `CLAUDE.md`-Vorlage. Das Repo enthält keinen Anwendungscode — sein Produkt
+sind Anweisungen (Markdown) und Shellskripte.
 
 ## Tech Stack
 
-- **Sprache/Runtime**: <z. B. TypeScript + React 18 + Vite | Python 3.12 + uv>
-- **UI**: <z. B. shadcn/ui + Tailwind — oder "keins (CLI)">
-- **Daten/Backend**: <z. B. Supabase (PostgreSQL, Edge Functions) | SQLite | Dateien>
-- **Externe Dienste**: <APIs, LLMs, SMTP … — oder "keine">
-- **Tests**: <z. B. Vitest | pytest> · **Lint**: <z. B. ESLint | ruff (+ mypy)>
+- **Sprache/Runtime**: Bash (Zielversion 3.2, siehe Harte Grenzen) + Markdown
+- **UI**: keins (CLI)
+- **Daten/Backend**: keins — reine Dateikopien
+- **Externe Dienste**: `gh` (nur `setup-github.sh`), `gitleaks` (optional,
+  überall mit Graceful Degradation)
+- **Tests**: `tests/hook-selftest.sh` · **Lint**: `shellcheck -S warning`
 
 ## Projektstruktur
 
 ```
-<Kompakter Verzeichnisbaum mit 1-Zeilen-Zweck pro Eintrag. Nur die Ebenen,
-die man zum Navigieren braucht. Auto-generierte Verzeichnisse markieren.>
+setup.sh                    # kopiert/vergleicht/aktualisiert den Werkzeugkasten
+setup-github.sh             # serverseitige GitHub-Schalter (Rulesets, Push Protection)
+CLAUDE.md                   # DIESE Datei — Kontext des Template-Repos
+templates/CLAUDE.md         # die auszuliefernde Vorlage mit <PLATZHALTERN>
+tests/hook-selftest.sh      # das verbindliche Gate (siehe unten)
+.claude/hooks/              # die Schutz-Hooks — das eigentliche Produkt
+.claude/agents/             # Agenten der Feature-Pipeline
+.claude/skills/             # /feature, /fix, /bootstrap
+.githooks/pre-commit        # gitleaks bei jedem Commit, auch ohne Claude
+.github/workflows/          # *.yml aktiv; *.yml.example sind Vorlagen für Zielprojekte
+docs/requirements-status.md # Roadmap-Vorlage (wird mitkopiert)
 ```
 
 ## Harte Grenzen (nicht verhandelbar)
 
-<Nur aufnehmen, was wirklich hart ist — Verstöße sind im Code-Review
-automatisch BLOCKED. Abschnitt löschen, wenn es keine gibt. Beispiele:>
-- <z. B. READ-ONLY: niemals Mails senden / Daten löschen / … >
-- <z. B. Kein Cloud-LLM im Laufzeitpfad>
-- <z. B. Keine PII ins Repo: Nutzdaten, Outputs und .env werden nie committet>
-- <z. B. Ressourcen-Limits: Modellgröße, num_ctx, Speicher>
+- **`./tests/hook-selftest.sh` muss grün bleiben.** Es ist das einzige Gate
+  über den Skripten. Neue Funktionalität bekommt neue Assertions dort — sonst
+  ist sie nicht abgesichert. Verbindlich ist „0 fehlgeschlagen und keine
+  bestehende Assertion verloren", nicht eine absolute Zahl: die Zahl der
+  übersprungenen Tests hängt daran, ob `npm`/`gitleaks` im PATH liegen.
+- **Bash 3.2 kompatibel** (macOS-Standard-Bash). Keine assoziativen Arrays,
+  kein `${var,,}`, keine leeren Array-Expansionen unter `set -u`. Zu den
+  bekannten Fallen stehen bereits Kommentare im Code — lies sie, bevor du sie
+  umschreibst. `shellcheck` prüft das NICHT.
+- **Keine neuen Laufzeit-Abhängigkeiten.** Erlaubt: bash, git, coreutils,
+  optional `gitleaks` und `python3`/`python` — beide nur mit Fallback, nie als
+  Voraussetzung. Kein `jq`, keine neuen Sprach-Runtimes, keine npm-/pip-Pakete
+  für die Hooks.
+- **Ein Hook darf nie still ausfallen.** Fehlt eine Toolchain, gehört das auf
+  stderr, samt Benennung der Schicht, die stattdessen trägt. „Sieht geschützt
+  aus, ist es nicht" ist der gefährlichste Zustand dieses Setups.
+
+## KERN und PROJEKT
+
+`setup.sh` unterscheidet zwei Sorten Dateien. Ordne jede neue Datei bewusst
+zu — `is_core()` in `setup.sh` ist die maßgebliche Definition.
+
+| Sorte | Was | Regel |
+|---|---|---|
+| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/` | muss in allen Projekten identisch sein; `--update` überschreibt |
+| **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `.github/**`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf abweichen; wird nie überschrieben |
+
+Dazu eine dritte, ungeschriebene Sorte: **template-eigene Dateien**, die in
+keinem Zielprojekt etwas zu suchen haben. Aktuell
+`.github/workflows/hook-selftest.yml` und `.claude/hooks/verify-project.sh`.
+Sie werden in `process_tree()` namentlich vom Kopieren ausgeschlossen, und je
+eine Assertion im Selbsttest belegt, dass sie nach einem `setup.sh`-Lauf im
+Ziel fehlen. Legst du eine weitere solche Datei an, gehört sie in beide Listen.
 
 ## Arbeitsweise
 
@@ -70,100 +111,103 @@ Augenmaß anwenden.
 
 ## Konventionen
 
-- **Sprache**: <z. B. UI-Texte Deutsch, Code + Kommentare Englisch>
-- **Typisierung**: <z. B. Type Hints auf allen Signaturen | kein `any`>
-- **Struktur**: <z. B. Prompts als Textdateien in `prompts/`, nicht inline |
-  Datenzugriff nur über Hooks in `src/hooks/`, keine Direktzugriffe in Komponenten>
+- **Sprache**: Kommentare, Doku und Skript-Ausgaben Deutsch; Bezeichner im
+  Code Englisch.
+- **Kommentare erklären das Warum**, meist mit dem konkreten Fehlmodus, den
+  sie verhindern. Ein Kommentar, der wiederholt, was der Code tut, ist keiner.
+- **Struktur**: Hooks halten ihren Exit-Code-Vertrag ein und dokumentieren ihn
+  im Dateikopf (`0` = erlauben, `2` = blockieren mit Begründung auf stderr).
 - **Im Klartext**: Bei Findings mit Entscheidungsbedarf (Review-Ergebnisse,
   Security-Punkte, Risiken) immer zusätzlich in nicht-technischer Sprache
-  erklären, was das Problem für Nutzer/Betreiber konkret bedeutet — als
-  eigene Spalte oder Satz. Reine Referenz-Tabellen (Dateilisten,
-  Coverage-Maps) brauchen das nicht.
+  erklären, was das Problem für Nutzer/Betreiber konkret bedeutet. Reine
+  Referenz-Tabellen (Dateilisten, Coverage-Maps) brauchen das nicht.
 - **Secrets**: keine Secrets im Code — Konfiguration über `.env`
-  (siehe `.env.example`); echte Werte nur lokal bzw. im Secret-Store des
-  Deploy-Ziels.
-- **Commits**: Conventional Commits (`feat:` / `fix:` / `docs:` / `test:` / `chore:`)
-- **Auto-generierte Dateien**: <welche — nie manuell editieren; oder "keine">
+  (siehe `.env.example`).
+- **Commits**: Conventional Commits (`feat:` / `fix:` / `docs:` / `test:` /
+  `ci:` / `chore:`). Ein Thema = ein Commit.
+- **Action-Pins**: immer Full-SHA plus Versionskommentar in der Zeile darüber.
+  Dependabot parst `*.yml.example` NICHT — hebt es die aktiven Workflows,
+  müssen die Vorlagen von Hand nachgezogen werden. Der Selbsttest erzwingt
+  das (gleiche Action → gleicher SHA über alle Workflows).
 
 ## Build & Dev Commands
 
-<Diese Befehle sind die verbindlichen Gates — CI, der Stop-Hook
-(.claude/hooks/verify.sh) und der qa-engineer führen genau diese aus.>
+Diese Befehle sind die verbindlichen Gates — CI, der Stop-Hook
+(`.claude/hooks/verify-project.sh`) und der qa-engineer führen genau diese aus.
 
 ```bash
-<install>        # z. B. npm install | uv sync --extra dev
-<dev>            # z. B. npm run dev (localhost:8080) | python main.py
-<lint>           # z. B. npm run lint | uv run ruff check .
-<typecheck>      # z. B. npx tsc -b --noEmit | uv run mypy src  (falls vorhanden)
-<test>           # z. B. npm test | uv run pytest -q
-<build>          # z. B. npm run build  (falls vorhanden)
+# install    — keiner nötig; optional: brew install gitleaks shellcheck
+./tests/hook-selftest.sh                     # test (das Gate)
+shellcheck -s bash -S warning \
+  .claude/hooks/*.sh .githooks/pre-commit \
+  setup.sh setup-github.sh tests/hook-selftest.sh    # lint
+./setup.sh --diff <zielprojekt>              # Kern-Verfall prüfen (Exit 1 = Verfall)
 ```
+
+Es gibt keinen Typecheck und keinen Build — das Repo kompiliert nichts.
 
 ## Environment Variables
 
-`.env.example` nach `.env` kopieren und ausfüllen:
-
-```
-<VAR_NAME>=      # wofür, wo man den Wert bekommt
-```
-
-<Falls zutreffend: welche Secrets NICHT in .env leben, sondern im
-Dashboard/Secret-Store des Deploy-Ziels konfiguriert werden.>
+Keine. `.env.example` im Root ist die Vorlage, die Zielprojekte bekommen, und
+wird in diesem Repo selbst nicht benutzt.
 
 ## Sicherheitsmodell
 
-<Wie Auth/Zugriff funktioniert, in 3–6 Bullets. Beispiele: welches
-Auth-Muster neue Endpunkte nutzen MÜSSEN; wie DB-Zugriffe abgesichert sind
-(RLS o. Ä.); was bewusst öffentlich ist. Abschnitt löschen, wenn das Projekt
-keine Angriffsfläche hat.>
+Das Repo hat keine Laufzeit-Angriffsfläche — es kopiert Dateien. Was es
+schützt, ist die Secret-Hygiene der Projekte, in die es kopiert wird:
 
-Secret-Schutz (Defense in Depth, generisch eingerichtet):
-0. `permissions.deny` in `.claude/settings.json` blockt direkte Lesezugriffe
-   von Claude auf `.env`-Dateien/Keys; der Hook
-   `.claude/hooks/protect-secrets.sh` blockt Schreibzugriffe darauf (beides
-   Best-Effort — indirekte Wege sind nicht vollständig abgedeckt; die harten
-   Garantien liefern die Schichten 1–4).
-1. Claude-Hook `.claude/hooks/secret-scan.sh` blockt commit/push mit Secrets.
-2. Git-Hook `.githooks/pre-commit` (gitleaks) blockt lokal jeden Commit.
+0. `permissions.deny` in `.claude/settings.json` blockt Lesezugriffe auf
+   `.env`-Dateien/Keys; `.claude/hooks/protect-secrets.sh` blockt
+   Schreibzugriffe darauf (beides Best-Effort — indirekte Wege wie
+   Shell-Redirects sind nicht abgedeckt; die harten Garantien liefern 1–4).
+1. `.claude/hooks/secret-scan.sh` blockt `git commit`/`push` mit Secrets.
+2. `.githooks/pre-commit` (gitleaks) blockt lokal jeden Commit — braucht
+   `core.hooksPath=.githooks`, das `session-start.sh` und `--update` setzen.
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.
-4. GitHub Push Protection (im Repo aktivieren!) blockt serverseitig.
+4. GitHub Push Protection (per `setup-github.sh` aktiviert).
+
 Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar.
+`.env.example` ist der bewusste blinde Fleck aller gitleaks-Schichten — dort
+dürfen NUR Platzhalter stehen. Deshalb ist es auch die einzige Datei, die
+`protect-secrets.sh` als editierbare Vorlage durchlässt.
 
 ## Roadmap & Offene Punkte
 
-Die zentrale Roadmap liegt in `docs/requirements-status.md`: alle geplanten
-Punkte mit Status und Akzeptanzkriterien, sortiert nach Priorität.
-„Nächster Punkt" heißt: der oberste offene Punkt dort. Nach Abschluss den
-Status dort abhaken (erst nach verifizierten Akzeptanzkriterien) und neue
-Erkenntnisse als neue Punkte ergänzen.
+`docs/requirements-status.md` ist in diesem Repo die auszuliefernde Vorlage,
+keine gepflegte Roadmap. Arbeitspakete kommen hier direkt aus der Anfrage.
 
 ## Feature-Workflow (Agent-Team)
 
-Nicht-triviale Features laufen über `/feature <beschreibung>` durch die
-Pipeline requirements-engineer → solution-architect → Implementierung
-(Haupt-Agent) → code-reviewer → qa-engineer → Draft-PR. Artefakte liegen
-unter `docs/features/<slug>/`.
+Für Änderungen an diesem Repo gilt: die Pipeline (`/feature`) ist meist
+überdimensioniert — die typische Änderung ist ein Hook oder ein Workflow-Step
+plus Assertion, also `/fix`-Format. Was immer gilt:
 
-Was kein Test abdecken kann, wird im `qa-plan.md` als nummerierter
-MC-Eintrag festgehalten (Tun / Erwartet / Warum manuell) und wandert als
-Checkbox-Block in den PR-Body. Diese Haken setzt nur der Mensch: Claude hakt
-nie selbst ab und nimmt den PR nie selbst aus dem Draft-Status.
-
-Bugfixes und kleine, klar umrissene
-Änderungen laufen über `/fix <beschreibung>` (Regressionstest + minimaler
-Fix, ohne Pipeline-Gates). Kleinigkeiten (Typos, Einzeiler) direkt fixen.
-Fehlen Lint-/Test-Gates (neues Projekt), richtet `/bootstrap [stack]` sie ein.
+- Jede Verhaltensänderung an einem Skript braucht eine Assertion in
+  `tests/hook-selftest.sh`, und die Assertion muss nachweislich rot werden,
+  wenn man die Änderung zurücknimmt.
+- Manuelle Prüfschritte, die kein Test abdecken kann, wandern als
+  MC-Checkbox-Block in den PR-Body. Diese Haken setzt nur der Mensch; Claude
+  hakt nie selbst ab und nimmt den PR nie selbst aus dem Draft-Status.
 
 ## CI/CD
 
-<Welche Workflows existieren und was sie gaten. Default: `ci.yml`
-(Lint + Typecheck + Tests + Build) und `secret-scan.yml` (gitleaks) auf
-jedem PR. Deploy-Prozess beschreiben, falls vorhanden — inkl. manueller
-Schritte (z. B. "Migrationen werden NICHT auto-deployed, nach Merge
-manuell anwenden").>
+- `secret-scan.yml` — gitleaks über die volle Historie, hartes Gate auf jedem
+  PR. Der Job heißt `gitleaks (hard gate)`; das Branch-Ruleset verlangt genau
+  diesen Namen.
+- `hook-selftest.yml` — shellcheck + `tests/hook-selftest.sh`. Läuft per
+  Repo-Guard nur in diesem Repo.
+- `ci-*.yml.example` und `core-drift.yml.example` sind Vorlagen für
+  Zielprojekte und laufen hier nicht.
+
+Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
 
 ## Known Issues & Technical Debt
 
-<Ehrliche Liste. Beispiele: "keine Tests für Modul X", "Verzeichnis Y ist
-ein divergierendes Duplikat — nur Z editieren", "Komponente W mischt
-Concerns — beim Anfassen Utilities extrahieren". Oder "Keine bekannt.">
+- `astral-sh/setup-uv` in `ci-python-*.yml.example` steht auf v4.2.0
+  (Nov 2024). Dependabot fasst `*.yml.example` nicht an; ein Bump über fünf
+  Major-Versionen braucht einen Test in einem echten Python-Zielprojekt.
+- Die Agenten-Tests im Selbsttest prüfen nur Struktur-Marker, nicht Verhalten
+  — LLM-Ausgaben sind deterministisch nicht prüfbar.
+- `setup.sh --diff` erkennt Kern-Verfall nur, wenn es jemand ausführt.
+  `core-drift.yml.example` deckt das für Zielprojekte ab, muss dort aber
+  einmal als `core-drift.yml` aktiviert werden.

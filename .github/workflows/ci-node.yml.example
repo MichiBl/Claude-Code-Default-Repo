@@ -29,8 +29,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        # actions/checkout v7.0.0
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Setup Node.js
         # actions/setup-node v6.4.0
@@ -48,6 +48,14 @@ jobs:
         # npm-Provenance noch nicht universell ist; Warnungen bei Rot prüfen.
         run: npm audit signatures
         continue-on-error: true
+
+      - name: Audit dependencies for known CVEs
+        # Hartes Gate — Gegenstück zu `pip-audit --strict` in der Python-Vorlage.
+        # --omit=dev, weil transitive devDependency-Advisories ohne verfügbaren
+        # Fix der Hauptgrund sind, warum `npm audit` als Gate abgeschaltet wird;
+        # ausgeliefert werden die Production-Deps. Schwelle "high": moderate
+        # Findings sind zu häufig, um einen Merge zu blockieren.
+        run: npm audit --audit-level=high --omit=dev
 
       - name: Lint
         run: npm run lint

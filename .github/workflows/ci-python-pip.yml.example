@@ -1,0 +1,57 @@
+# CI-Vorlage für Python-Projekte mit requirements.txt.
+# Aktivieren: Datei nach ci.yml umbenennen. setup.sh tut das automatisch,
+# wenn es keine uv.lock im Zielprojekt findet.
+# Python-Version und Quell-/Testpfade an das Projekt anpassen.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: der Workflow liest nur den Code.
+permissions:
+  contents: read
+
+jobs:
+  pip:
+    name: lint • typecheck • test (pip)
+    runs-on: ubuntu-latest
+    # Schutz gegen hängende Runner.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        # actions/setup-python v6.3.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Dependency audit (soft / non-blocking)
+        continue-on-error: true
+        run: |
+          pip install pip-audit
+          pip-audit --strict || echo "pip-audit meldete Findings (soft gate)."
+
+      - name: Lint (ruff)
+        run: ruff check src tests
+
+      - name: Typecheck (mypy)
+        run: mypy src
+
+      - name: Tests (pytest)
+        run: pytest

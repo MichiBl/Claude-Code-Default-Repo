@@ -1,7 +1,6 @@
-# CI-Vorlage für Python-Projekte.
-# Aktivieren: Datei nach ci.yml umbenennen und EINEN der beiden Jobs behalten:
-#   * "uv"  — für Projekte mit pyproject.toml + uv.lock (empfohlen)
-#   * "pip" — für Projekte mit requirements.txt
+# CI-Vorlage für Python-Projekte mit pyproject.toml + uv.lock (empfohlen).
+# Aktivieren: Datei nach ci.yml umbenennen. setup.sh tut das automatisch,
+# wenn es eine uv.lock im Zielprojekt findet.
 # Python-Version und Quell-/Testpfade an das Projekt anpassen.
 
 name: CI
@@ -28,8 +27,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        # actions/checkout v7.0.0
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
         # actions/setup-python v6.3.0
@@ -56,43 +55,11 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Audit dependencies for known CVEs
+        # Hartes Gate. Setzt voraus, dass pip-audit als Dev-Dependency im
+        # Projekt steht (`[dependency-groups] dev` bzw. `[project.optional-
+        # dependencies] dev`) — `uv run` installiert nichts nach, der Step
+        # scheitert sonst mit "command not found" statt mit einem Finding.
         run: uv run pip-audit --strict
 
       - name: Tests (pytest)
         run: uv run pytest -q
-
-  pip:
-    name: lint • typecheck • test (pip)
-    runs-on: ubuntu-latest
-    # Schutz gegen hängende Runner.
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        # actions/checkout v7.0.0
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-
-      - name: Set up Python
-        # actions/setup-python v6.3.0
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Dependency audit (soft / non-blocking)
-        continue-on-error: true
-        run: |
-          pip install pip-audit
-          pip-audit --strict || echo "pip-audit meldete Findings (soft gate)."
-
-      - name: Lint (ruff)
-        run: ruff check src tests
-
-      - name: Typecheck (mypy)
-        run: mypy src
-
-      - name: Tests (pytest)
-        run: pytest

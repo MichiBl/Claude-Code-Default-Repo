@@ -69,6 +69,25 @@ hook_run_in() { # hook_run_in <projektdir> <hook> — setzt RC (Exit) und ERR (s
   ERR="$(cat "$TMP/stderr.txt" 2>/dev/null || true)"
 }
 
+# PATH-Stub ohne python/python3. Belegt, dass die Hooks in einer Umgebung ohne
+# Interpreter (z. B. Node-only-Container) nicht still durchfallen — CI-Runner
+# haben python3, deshalb fiele genau dieser Fall sonst nie auf.
+# gitleaks fehlt hier bewusst: secret-scan.sh läuft damit deterministisch in
+# seinen dokumentierten (b)-Zweig, egal was auf dem Host installiert ist.
+NOPY_BIN="$TMP/nopy-bin"; mkdir -p "$NOPY_BIN"
+for t in bash cat sed head basename grep git; do
+  p="$(command -v "$t" 2>/dev/null || true)"
+  [ -n "$p" ] && ln -sf "$p" "$NOPY_BIN/$t"
+done
+
+hook_run_nopy() { # hook_run_nopy <projektdir> <hook> <payload> — setzt RC und ERR
+  RC=0
+  printf '%s' "$3" \
+    | env -i PATH="$NOPY_BIN" CLAUDE_PROJECT_DIR="$1" bash "$2" \
+      >/dev/null 2>"$TMP/stderr.txt" || RC=$?
+  ERR="$(cat "$TMP/stderr.txt" 2>/dev/null || true)"
+}
+
 check_contains() { # check_contains <label> <needle> <text>
   local label="$1" needle="$2" text="$3"
   if printf '%s' "$text" | grep -qF -- "$needle"; then
@@ -107,8 +126,20 @@ check ".env.production wird geblockt"      2 "$(hook_exit "$PS" "$(payload_write
 check "Key-Datei (*.pem) wird geblockt"    2 "$(hook_exit "$PS" "$(payload_write /proj/certs/server.pem)")"
 check "secrets/-Pfad wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write /proj/secrets/sa.json)")"
 check ".env.example bleibt editierbar"     0 "$(hook_exit "$PS" "$(payload_write /proj/.env.example)")"
+check ".env.dist wird geblockt"            2 "$(hook_exit "$PS" "$(payload_write /proj/.env.dist)")"
+check ".env.template wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write /proj/.env.template)")"
 check "normale Quelldatei bleibt erlaubt"  0 "$(hook_exit "$PS" "$(payload_write /proj/src/app.ts)")"
 check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
+
+# Ohne Interpreter muss der Hook weiter blocken UND es sagen — vorher fiel er
+# hier lautlos mit exit 0 durch.
+hook_run_nopy "$TMP" "$PS" "$(payload_write /proj/.env)"
+check "ohne python3: .env wird weiter geblockt" 2 "$RC"
+check_contains "ohne python3: Ausfall wird gemeldet" "kein python3/python gefunden" "$ERR"
+check_contains "ohne python3: Backstop wird benannt" "pre-commit" "$ERR"
+
+hook_run_nopy "$TMP" "$PS" "$(payload_write /proj/src/app.ts)"
+check "ohne python3: normale Datei bleibt erlaubt" 0 "$RC"
 
 # --- verify.sh -------------------------------------------------------------------
 echo "== verify.sh =="
@@ -156,6 +187,17 @@ d="$(mkfix scanidle)"
 check "Nicht-Git-Befehl wird durchgewunken" 0 \
   "$(hook_exit_in "$d" "$SS" "$(payload_bash 'ls -la')")"
 
+# Ohne Interpreter blieb CMD leer, die Erkennung matchte nie und der Scan
+# entfiel still. Der (b)-Hinweis auf fehlendes gitleaks belegt, dass der Hook
+# den commit jetzt trotzdem erkennt und bis zum Scan durchläuft.
+hook_run_nopy "$d" "$SS" "$(payload_bash 'git commit -m test')"
+check "ohne python3: Hook blockiert nichts fälschlich" 0 "$RC"
+check_contains "ohne python3: Ausfall wird gemeldet" "kein python3/python gefunden" "$ERR"
+check_contains "ohne python3: commit wird trotzdem erkannt" "gitleaks nicht installiert" "$ERR"
+
+hook_run_nopy "$d" "$SS" "$(payload_bash 'ls -la')"
+check_absent "ohne python3: Nicht-Git-Befehl löst keinen Scan aus" "gitleaks nicht installiert" "$ERR"
+
 if command -v gitleaks >/dev/null 2>&1; then
   # Fake-Key zur Laufzeit zusammensetzen, damit die Secret-Scans dieses Repos
   # die Testdatei selbst nicht als Fund werten. Der Suffix muss Base32 sein
@@ -169,6 +211,12 @@ if command -v gitleaks >/dev/null 2>&1; then
   git -C "$HOT" add config.txt
   check "Commit mit gestagtem Fake-Key wird geblockt" 2 \
     "$(hook_exit_in "$HOT" "$SS" "$(payload_bash 'git commit -m test')")"
+
+  # Regression: das Wort "push" in der Commit-Message darf den Befehl nicht in
+  # den Push-Zweig schieben — der sieht die gestagten Aenderungen nicht an.
+  check "Commit-Message mit 'git push' wird trotzdem als Commit gescannt" 2 \
+    "$(hook_exit_in "$HOT" "$SS" \
+       '{"tool_input":{"command":"git commit -m \"docs: erklaere git push flow\""}}')"
 
   OK="$(mkfix scanok)"
   git_t -C "$OK" commit -q --allow-empty -m init
@@ -242,10 +290,24 @@ run_setup() { # run_setup <targetdir> — setup.sh still ausführen
   bash "$ROOT/setup.sh" "$1" >/dev/null 2>&1 || true
 }
 
+# Prüft, dass die aktivierte ci.yml die gewählte Vorlage VOLLSTÄNDIG enthält.
+# Früher schnitt setup.sh den nicht passenden Job per awk aus einer gemeinsamen
+# Python-Vorlage; eine geänderte Einrückung hätte still eine halbe ci.yml
+# erzeugt, die die Job-Namen-Checks unten trotzdem bestanden hätte.
+check_ci_vollstaendig() { # check_ci_vollstaendig <label> <vorlage> <ci.yml>
+  local want got rc=0
+  want="$(grep -c '^      - name:' "$2" 2>/dev/null || echo 0)"
+  got="$(grep -c '^      - name:' "$3" 2>/dev/null || echo 0)"
+  { [ "$want" -gt 0 ] && [ "$want" -eq "$got" ]; } || rc=1
+  check "$1 ($got/$want Steps)" 0 "$rc"
+}
+
 d="$TMP/ci-node"; mkdir -p "$d"; printf '{}' > "$d/package.json"
 run_setup "$d"
 rc=0; grep -q "npm ci" "$d/.github/workflows/ci.yml" 2>/dev/null || rc=1
 check "Node-Stack -> ci.yml aktiviert (Node-Job)" 0 "$rc"
+check_ci_vollstaendig "Node-Vorlage vollständig übernommen" \
+  "$ROOT/.github/workflows/ci-node.yml.example" "$d/.github/workflows/ci.yml"
 
 d="$TMP/ci-uv"; mkdir -p "$d"; touch "$d/pyproject.toml" "$d/uv.lock"
 run_setup "$d"
@@ -253,6 +315,8 @@ rc=0
 { grep -q '^  uv:' "$d/.github/workflows/ci.yml" && \
   ! grep -q '^  pip:' "$d/.github/workflows/ci.yml"; } 2>/dev/null || rc=1
 check "Python mit uv.lock -> nur uv-Job in ci.yml" 0 "$rc"
+check_ci_vollstaendig "uv-Vorlage vollständig übernommen" \
+  "$ROOT/.github/workflows/ci-python-uv.yml.example" "$d/.github/workflows/ci.yml"
 
 d="$TMP/ci-pip"; mkdir -p "$d"; touch "$d/requirements.txt"
 run_setup "$d"
@@ -260,6 +324,8 @@ rc=0
 { grep -q '^  pip:' "$d/.github/workflows/ci.yml" && \
   ! grep -q '^  uv:' "$d/.github/workflows/ci.yml"; } 2>/dev/null || rc=1
 check "Python ohne uv.lock -> nur pip-Job in ci.yml" 0 "$rc"
+check_ci_vollstaendig "pip-Vorlage vollständig übernommen" \
+  "$ROOT/.github/workflows/ci-python-pip.yml.example" "$d/.github/workflows/ci.yml"
 
 d="$TMP/ci-exist"; mkdir -p "$d/.github/workflows"
 echo "# eigene CI" > "$d/.github/workflows/ci.yml"
@@ -272,6 +338,27 @@ d="$TMP/ci-none"; mkdir -p "$d"
 run_setup "$d"
 rc=0; [ ! -e "$d/.github/workflows/ci.yml" ] || rc=1
 check "unbekannter Stack -> keine ci.yml angelegt" 0 "$rc"
+
+# Template-eigene Dateien duerfen nicht in Zielprojekte wandern: verify-project.sh
+# wuerde dort die Stack-Autoerkennung von verify.sh abschalten und diesen
+# Selbsttest suchen, hook-selftest.yml wuerde als CI die Template-Hooks testen.
+rc=0; [ ! -e "$d/.claude/hooks/verify-project.sh" ] || rc=1
+check "verify-project.sh wandert nicht ins Zielprojekt" 0 "$rc"
+rc=0; [ ! -e "$d/.github/workflows/hook-selftest.yml" ] || rc=1
+check "hook-selftest.yml wandert nicht ins Zielprojekt" 0 "$rc"
+rc=0; [ -e "$d/.claude/hooks/verify.sh" ] || rc=1
+check "verify.sh (KERN) wird weiterhin kopiert" 0 "$rc"
+
+# Die CLAUDE.md im Repo-Root ist der Kontext DIESES Repos; ins Zielprojekt
+# gehoert weiterhin die unveraenderte Platzhalter-Vorlage aus templates/.
+rc=0; grep -q '<install>' "$d/CLAUDE.md" 2>/dev/null || rc=1
+check "Zielprojekt bekommt die Platzhalter-Vorlage, nicht diesen Kontext" 0 "$rc"
+rc=0; cmp -s "$ROOT/templates/CLAUDE.md" "$d/CLAUDE.md" || rc=1
+check "kopierte CLAUDE.md ist byte-identisch zu templates/CLAUDE.md" 0 "$rc"
+
+# Die Drift-Vorlage nuetzt nur im Zielprojekt — sie muss dort ankommen.
+rc=0; [ -e "$d/.github/workflows/core-drift.yml.example" ] || rc=1
+check "core-drift.yml.example wandert ins Zielprojekt" 0 "$rc"
 
 # --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
 # Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
@@ -352,6 +439,42 @@ rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
 
+# --- .github/workflows: Action-Pins --------------------------------------------------
+# Dependabot parst *.yml.example NICHT. Es hebt deshalb nur die beiden aktiven
+# Workflows und lässt die CI-Vorlagen auf dem alten SHA stehen — genau so ist
+# hier ein checkout-Pin zweier Versionen entstanden, mit falschem Kommentar.
+# Diese Assertion macht den nächsten solchen Dependabot-PR rot, bis die
+# Vorlagen nachgezogen sind.
+echo "== .github/workflows: Action-Pins =="
+
+pins="$(grep -rhoE 'uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' "$ROOT/.github/workflows" \
+  | sed 's/^uses:[[:space:]]*//' | sort -u)"
+
+rc=0; [ -n "$pins" ] || rc=1
+check "Action-Pins gefunden (Full-SHA, kein Tag)" 0 "$rc"
+
+split="$(printf '%s\n' "$pins" | sed 's/@.*//' | uniq -d)"
+rc=0; [ -z "$split" ] || rc=1
+check "gleiche Action überall derselbe SHA" 0 "$rc"
+[ -z "$split" ] || printf '      uneinheitlich gepinnt: %s\n' "$split"
+
+# Der Versionskommentar ist die einzige menschenlesbare Audit-Fläche eines
+# SHA-Pins. Fehlt er, ist der Pin nur noch eine Hex-Zeichenkette. Geprüft wird
+# nur, DASS er da ist — ob die genannte Version zum SHA gehört, ließe sich nur
+# gegen die GitHub-API klären, und der Selbsttest bleibt bewusst offline.
+rc=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  n_uses="$(grep -cE '^[[:space:]]*uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' "$f")"
+  # Kommentarzeile direkt über jedem uses: (grep -B1 liefert sie mit).
+  n_comment="$(grep -B1 -E '^[[:space:]]*uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' "$f" \
+    | grep -cE '^[[:space:]]*#[[:space:]]*[^[:space:]]+[[:space:]]+v[0-9]')"
+  [ "$n_uses" -eq "$n_comment" ] || rc=1
+done <<EOF
+$(find "$ROOT/.github/workflows" -type f \( -name '*.yml' -o -name '*.yml.example' \))
+EOF
+check "jeder Pin trägt einen Versionskommentar" 0 "$rc"
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits
@@ -377,7 +500,7 @@ marker .claude/agents/qa-engineer.md "Warum manuell"
 marker .claude/skills/feature/SKILL.md "GATE 1"
 marker .claude/skills/feature/SKILL.md "GATE 2"
 marker .claude/skills/feature/SKILL.md "Selbst prüfen, bevor der PR aus dem Draft geht"
-marker CLAUDE.md "eine Kernverantwortung"
+marker templates/CLAUDE.md "eine Kernverantwortung"
 
 # --- Ergebnis --------------------------------------------------------------------
 echo

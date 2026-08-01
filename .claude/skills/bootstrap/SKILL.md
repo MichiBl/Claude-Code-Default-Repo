@@ -52,7 +52,8 @@ nie vorhandene Konfiguration.
 ### 3. CI aktivieren
 
 Liegt unter `.github/workflows/` ein passendes Example
-(`ci-node.yml.example` / `ci-python.yml.example`), benenne es nach `ci.yml`
+(`ci-node.yml.example` / `ci-python-uv.yml.example` /
+`ci-python-pip.yml.example`), benenne es nach `ci.yml`
 um und passe es an die eingerichteten Befehle an. Für andere Stacks: kurz
 anbieten, eine `ci.yml` zu schreiben — nicht ungefragt erfinden.
 

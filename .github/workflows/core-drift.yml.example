@@ -1,0 +1,53 @@
+# Aktivieren: Datei nach core-drift.yml umbenennen. Kein weiterer Eingriff nötig.
+#
+# Meldet, wenn der Werkzeug-Kern dieses Projekts (Agents, Skills, Hooks,
+# .githooks) vom Template abgewichen ist — ohne dass jemand daran denken muss.
+#
+# Warum: `setup.sh --diff` ist die eigentliche Drift-Prüfung, hilft aber nur,
+# wenn sie jemand ausführt, mit einem lokalen Klon BEIDER Repos. Über mehrere
+# Projekte hinweg passiert das nicht — und dann laufen die Kopien über Monate
+# auseinander, genau der Zustand, gegen den die KERN/PROJEKT-Trennung gebaut
+# ist. Dieser Workflow fragt wöchentlich für einen nach.
+#
+# Rot heißt nicht "kaputt", sondern "Kern veraltet". Beheben:
+#   ./setup.sh --update .   (aus einem Klon des Templates), dann committen.
+
+name: Core Drift
+
+on:
+  schedule:
+    # Montags 06:17 UTC. Krumme Minute, damit der Lauf nicht in der vollen
+    # Stunde mit dem Rest der Welt um GitHub-Runner konkurriert.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-drift:
+    name: Werkzeug-Kern gegen Template
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Quelle des Werkzeug-Kerns. Auf einen Fork umstellen, falls das Projekt
+      # einem eigenen Template folgt.
+      TEMPLATE_REPO: https://github.com/MichiBl/Claude-Code-Default-Repo.git
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Template klonen
+        run: git clone --depth 1 "$TEMPLATE_REPO" "$RUNNER_TEMP/template"
+
+      - name: Kern vergleichen
+        run: |
+          set -euo pipefail
+          # core.hooksPath lebt in .git/config und wird nicht mitversioniert —
+          # ein frischer Checkout hat sie nie. --diff wertet das (zu Recht) als
+          # Befund, hier wäre es aber immer ein Falsch-Positiv: ob der Hook auf
+          # der Maschine eines Menschen verdrahtet ist, kann die CI nicht sehen.
+          # Lokal zieht session-start.sh die Verdrahtung bei jedem Start nach.
+          [ -f .githooks/pre-commit ] && git config core.hooksPath .githooks
+          "$RUNNER_TEMP/template/setup.sh" --diff .

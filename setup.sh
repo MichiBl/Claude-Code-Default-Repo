@@ -31,7 +31,8 @@
 #   .gitleaks.toml
 #   .gitignore      (Secrets, Deps, Build-Artefakte)
 #   .env.example
-#   CLAUDE.md
+#   CLAUDE.md       (aus templates/CLAUDE.md — die Vorlage mit <PLATZHALTERN>;
+#                    die CLAUDE.md im Root ist der Kontext DIESES Repos)
 #   docs/requirements-status.md   (zentrale Roadmap: Punkte mit Status + AK)
 #
 # Im Kopier-Modus werden existierende Dateien NIE überschrieben — der Konflikt
@@ -211,14 +212,19 @@ process_file() {
 }
 
 # Vorlagen-Ordner rekursiv verarbeiten (gleicher Name im Zielprojekt).
-# (hook-selftest.yml ist Template-eigene CI — testet die Hooks DIESES Repos —
-# und wandert nicht in Zielprojekte; dort wäre er toter Ballast.)
+# Zwei template-eigene Dateien bleiben bewusst hier:
+#   * hook-selftest.yml   — CI, die die Hooks DIESES Repos testet; im
+#                           Zielprojekt toter Ballast.
+#   * verify-project.sh   — Gate DIESES Repos; im Zielprojekt würde es die
+#                           Stack-Autoerkennung von verify.sh abschalten und
+#                           einen Selbsttest suchen, den es dort nicht gibt.
 process_tree() {
   local dir="$1"
   while IFS= read -r -d '' f; do
     local rel="${f#"$SRC/$dir"/}"
     process_file "$dir/$rel" "$dir/$rel"
-  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' ! -name 'hook-selftest.yml' -print0)
+  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' \
+    ! -name 'hook-selftest.yml' ! -name 'verify-project.sh' -print0)
 }
 
 case "$MODE" in
@@ -234,7 +240,7 @@ process_tree ".github"
 process_file ".gitleaks.toml" ".gitleaks.toml"
 process_file ".gitignore"     ".gitignore"
 process_file ".env.example"   ".env.example"
-process_file "CLAUDE.md"      "CLAUDE.md"
+process_file "templates/CLAUDE.md" "CLAUDE.md"
 process_file "docs/requirements-status.md" "docs/requirements-status.md"
 
 if [ "$MODE" = "diff" ]; then
@@ -288,19 +294,21 @@ fi
 # "CI vergessen, gar kein Gate" entfällt. Existierende ci.yml wird NIE
 # angetastet. Dazu Lint-Gate-Check: ohne Linter im Zielprojekt laufen
 # verify.sh, CI und QA still leer (falsche Sicherheit).
-activate_ci() { # activate_ci <example-datei> [drop-job]
-  local example="$1" drop="${2:-}"
+activate_ci() { # activate_ci <example-datei>
+  local example="$1"
   local dest="$TARGET/.github/workflows/ci.yml"
   mkdir -p "$(dirname "$dest")"
   {
     echo "# Aktiviert durch setup.sh aus ${example} — Schritte/Versionen/Pfade"
     echo "# bei Bedarf an das Projekt anpassen."
-    # Führenden Kommentarblock der Vorlage ("Aktivieren: …") überspringen;
-    # bei Python zusätzlich den nicht passenden Job (uv|pip) entfernen.
-    awk -v drop="$drop" '
+    # Nur den führenden Kommentarblock der Vorlage ("Aktivieren: …") ersetzen;
+    # ab der ersten echten Zeile wird unverändert durchgereicht. Es gibt pro
+    # Stack eine eigene Vorlagendatei — früher stand hier ein awk, das aus
+    # einer gemeinsamen Python-Vorlage den nicht passenden Job herausschnitt.
+    # Das hing an einer Einrückungskonvention und hätte bei einer umsortierten
+    # oder anders formatierten Vorlage still eine halbe ci.yml erzeugt.
+    awk '
       body == 0 { if ($0 ~ /^#/ || $0 ~ /^[[:space:]]*$/) next; body = 1 }
-      /^  [A-Za-z0-9_-]+:[[:space:]]*$/ { injob = (drop != "" && $0 == "  " drop ":") }
-      injob { next }
       { print }
     ' "$SRC/.github/workflows/$example"
   } > "$dest"
@@ -322,10 +330,10 @@ elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   if [ -e "$CI_DEST" ]; then
     echo "  ℹ  Python-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
   elif [ -f "$TARGET/uv.lock" ]; then
-    activate_ci "ci-python.yml.example" "pip"
+    activate_ci "ci-python-uv.yml.example"
     echo "  ✓  Python-Projekt (uv) erkannt -> CI aktiviert: .github/workflows/ci.yml (uv-Job)."
   else
-    activate_ci "ci-python.yml.example" "uv"
+    activate_ci "ci-python-pip.yml.example"
     echo "  ✓  Python-Projekt (pip) erkannt -> CI aktiviert: .github/workflows/ci.yml (pip-Job)."
   fi
   if ! grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
