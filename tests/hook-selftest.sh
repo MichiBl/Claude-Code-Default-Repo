@@ -212,6 +212,12 @@ if command -v gitleaks >/dev/null 2>&1; then
   check "Commit mit gestagtem Fake-Key wird geblockt" 2 \
     "$(hook_exit_in "$HOT" "$SS" "$(payload_bash 'git commit -m test')")"
 
+  # Regression: das Wort "push" in der Commit-Message darf den Befehl nicht in
+  # den Push-Zweig schieben — der sieht die gestagten Aenderungen nicht an.
+  check "Commit-Message mit 'git push' wird trotzdem als Commit gescannt" 2 \
+    "$(hook_exit_in "$HOT" "$SS" \
+       '{"tool_input":{"command":"git commit -m \"docs: erklaere git push flow\""}}')"
+
   OK="$(mkfix scanok)"
   git_t -C "$OK" commit -q --allow-empty -m init
   echo "nur text" > "$OK/notes.txt"

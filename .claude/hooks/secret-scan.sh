@@ -80,7 +80,16 @@ CONFIG_OPT=""
 STATUS=0
 RESULT=""
 
-if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?push'; then
+# Erst auf commit prüfen, dann auf push. Andersherum gewann "push" jeden
+# Befehl, der das Wort irgendwo enthält — `git commit -m "erklaere git push"`
+# landete im Push-Zweig, der die gestagten Änderungen gar nicht ansieht, und
+# ein gestagtes Secret kam durch. Ein commit-mit-push (`git commit && git
+# push`) gehört ebenfalls hierher: gescannt werden muss der neue Inhalt, und
+# den sieht --staged.
+if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?commit'; then
+  # Commit: gestagte Änderungen scannen.
+  RESULT="$(gitleaks git --staged --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+else
   # Push: die Commits scannen, die upstream noch fehlen.
   RANGE=""
   if UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)"; then
@@ -95,9 +104,6 @@ if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?push'; the
     # frischen Repos) -> gesamte lokale Historie scannen statt gar nicht.
     RESULT="$(gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
   fi
-else
-  # Commit: gestagte Änderungen scannen.
-  RESULT="$(gitleaks git --staged --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
 fi
 
 if [ "$STATUS" -ne 0 ]; then
