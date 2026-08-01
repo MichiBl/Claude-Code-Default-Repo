@@ -144,7 +144,8 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
     ├── core-drift.yml.example   # meldet wöchentlich, wenn der Kern veraltet ist (umbenennen)
     ├── hook-selftest.yml        # testet die Schutz-Hooks — nur Template-Repo, wird NICHT kopiert
     ├── ci-node.yml.example      # Lint • tsc • Test • Build  (setup.sh aktiviert sie als ci.yml)
-    └── ci-python.yml.example    # ruff • mypy/pip-audit • pytest  (setup.sh aktiviert uv- ODER pip-Job)
+    ├── ci-python-uv.yml.example  # ruff • pip-audit • pytest   (setup.sh wählt sie bei uv.lock)
+    └── ci-python-pip.yml.example # ruff • mypy • pytest        (setup.sh wählt sie sonst)
 ```
 
 ### Andere Stacks (Go, Rust, …)

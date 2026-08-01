@@ -284,10 +284,24 @@ run_setup() { # run_setup <targetdir> — setup.sh still ausführen
   bash "$ROOT/setup.sh" "$1" >/dev/null 2>&1 || true
 }
 
+# Prüft, dass die aktivierte ci.yml die gewählte Vorlage VOLLSTÄNDIG enthält.
+# Früher schnitt setup.sh den nicht passenden Job per awk aus einer gemeinsamen
+# Python-Vorlage; eine geänderte Einrückung hätte still eine halbe ci.yml
+# erzeugt, die die Job-Namen-Checks unten trotzdem bestanden hätte.
+check_ci_vollstaendig() { # check_ci_vollstaendig <label> <vorlage> <ci.yml>
+  local want got rc=0
+  want="$(grep -c '^      - name:' "$2" 2>/dev/null || echo 0)"
+  got="$(grep -c '^      - name:' "$3" 2>/dev/null || echo 0)"
+  { [ "$want" -gt 0 ] && [ "$want" -eq "$got" ]; } || rc=1
+  check "$1 ($got/$want Steps)" 0 "$rc"
+}
+
 d="$TMP/ci-node"; mkdir -p "$d"; printf '{}' > "$d/package.json"
 run_setup "$d"
 rc=0; grep -q "npm ci" "$d/.github/workflows/ci.yml" 2>/dev/null || rc=1
 check "Node-Stack -> ci.yml aktiviert (Node-Job)" 0 "$rc"
+check_ci_vollstaendig "Node-Vorlage vollständig übernommen" \
+  "$ROOT/.github/workflows/ci-node.yml.example" "$d/.github/workflows/ci.yml"
 
 d="$TMP/ci-uv"; mkdir -p "$d"; touch "$d/pyproject.toml" "$d/uv.lock"
 run_setup "$d"
@@ -295,6 +309,8 @@ rc=0
 { grep -q '^  uv:' "$d/.github/workflows/ci.yml" && \
   ! grep -q '^  pip:' "$d/.github/workflows/ci.yml"; } 2>/dev/null || rc=1
 check "Python mit uv.lock -> nur uv-Job in ci.yml" 0 "$rc"
+check_ci_vollstaendig "uv-Vorlage vollständig übernommen" \
+  "$ROOT/.github/workflows/ci-python-uv.yml.example" "$d/.github/workflows/ci.yml"
 
 d="$TMP/ci-pip"; mkdir -p "$d"; touch "$d/requirements.txt"
 run_setup "$d"
@@ -302,6 +318,8 @@ rc=0
 { grep -q '^  pip:' "$d/.github/workflows/ci.yml" && \
   ! grep -q '^  uv:' "$d/.github/workflows/ci.yml"; } 2>/dev/null || rc=1
 check "Python ohne uv.lock -> nur pip-Job in ci.yml" 0 "$rc"
+check_ci_vollstaendig "pip-Vorlage vollständig übernommen" \
+  "$ROOT/.github/workflows/ci-python-pip.yml.example" "$d/.github/workflows/ci.yml"
 
 d="$TMP/ci-exist"; mkdir -p "$d/.github/workflows"
 echo "# eigene CI" > "$d/.github/workflows/ci.yml"
