@@ -92,8 +92,17 @@ im Zielprojekt kopiert (Ausnahmen sind im Baum markiert). Die Skripte selbst
 (`setup.sh`, `setup-github.sh`) und `tests/hook-selftest.sh` bleiben in
 diesem Repo.
 
+Zwei Dateien sind template-eigen und werden bewusst **nicht** kopiert:
+`.github/workflows/hook-selftest.yml` (testet die Hooks dieses Repos) und
+`.claude/hooks/verify-project.sh` (Gate dieses Repos — im Zielprojekt würde es
+die Stack-Autoerkennung von `verify.sh` abschalten). Ebenso liegt die
+`CLAUDE.md`-Vorlage unter `templates/CLAUDE.md`: die `CLAUDE.md` im Root ist
+der ausgefüllte Kontext dieses Repos, damit Claude beim Arbeiten *an* dem
+Werkzeugkasten nicht auf Platzhalter schaut.
+
 ```
-CLAUDE.md                        # generische Vorlage mit <PLATZHALTERN>
+CLAUDE.md                        # aus templates/CLAUDE.md — Vorlage mit <PLATZHALTERN>
+                                 # (die CLAUDE.md im Repo-Root ist dessen eigener Kontext)
 docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzeptanzkriterien
 .env.example                     # Vorlage für lokale Konfiguration (echte Werte nur in .env)
 .claude/
@@ -110,6 +119,7 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
 └── hooks/
     ├── session-start.sh         # SessionStart-Hook: fehlende Deps + core.hooksPath (v. a. Web-Sessions)
     ├── verify.sh                # Stop-Hook: Lint/Typecheck/Tests, Stack-Autoerkennung (Node/uv/pip)
+    ├── verify-project.sh        # Gate DIESES Repos (Selbsttest + shellcheck) — wird NICHT kopiert
     ├── secret-scan.sh           # PreToolUse-Hook: gitleaks vor git commit/push
     └── protect-secrets.sh       # PreToolUse-Hook: blockt Edit/Write auf .env-/Secret-Dateien
 .githooks/

@@ -325,6 +325,13 @@ check "hook-selftest.yml wandert nicht ins Zielprojekt" 0 "$rc"
 rc=0; [ -e "$d/.claude/hooks/verify.sh" ] || rc=1
 check "verify.sh (KERN) wird weiterhin kopiert" 0 "$rc"
 
+# Die CLAUDE.md im Repo-Root ist der Kontext DIESES Repos; ins Zielprojekt
+# gehoert weiterhin die unveraenderte Platzhalter-Vorlage aus templates/.
+rc=0; grep -q '<install>' "$d/CLAUDE.md" 2>/dev/null || rc=1
+check "Zielprojekt bekommt die Platzhalter-Vorlage, nicht diesen Kontext" 0 "$rc"
+rc=0; cmp -s "$ROOT/templates/CLAUDE.md" "$d/CLAUDE.md" || rc=1
+check "kopierte CLAUDE.md ist byte-identisch zu templates/CLAUDE.md" 0 "$rc"
+
 # --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
 # Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
 # PROJEKT-Dateien (CLAUDE.md & Co.) dürfen und sollen abweichen.
@@ -465,7 +472,7 @@ marker .claude/agents/qa-engineer.md "Warum manuell"
 marker .claude/skills/feature/SKILL.md "GATE 1"
 marker .claude/skills/feature/SKILL.md "GATE 2"
 marker .claude/skills/feature/SKILL.md "Selbst prüfen, bevor der PR aus dem Draft geht"
-marker CLAUDE.md "eine Kernverantwortung"
+marker templates/CLAUDE.md "eine Kernverantwortung"
 
 # --- Ergebnis --------------------------------------------------------------------
 echo

@@ -31,7 +31,8 @@
 #   .gitleaks.toml
 #   .gitignore      (Secrets, Deps, Build-Artefakte)
 #   .env.example
-#   CLAUDE.md
+#   CLAUDE.md       (aus templates/CLAUDE.md — die Vorlage mit <PLATZHALTERN>;
+#                    die CLAUDE.md im Root ist der Kontext DIESES Repos)
 #   docs/requirements-status.md   (zentrale Roadmap: Punkte mit Status + AK)
 #
 # Im Kopier-Modus werden existierende Dateien NIE überschrieben — der Konflikt
@@ -239,7 +240,7 @@ process_tree ".github"
 process_file ".gitleaks.toml" ".gitleaks.toml"
 process_file ".gitignore"     ".gitignore"
 process_file ".env.example"   ".env.example"
-process_file "CLAUDE.md"      "CLAUDE.md"
+process_file "templates/CLAUDE.md" "CLAUDE.md"
 process_file "docs/requirements-status.md" "docs/requirements-status.md"
 
 if [ "$MODE" = "diff" ]; then
