@@ -20,7 +20,18 @@ set -uo pipefail
 
 # --- PreToolUse-Payload lesen; Dateipfad extrahieren --------------------------
 STDIN_JSON="$(cat 2>/dev/null || true)"
-FILE="$(printf '%s' "$STDIN_JSON" | python3 -c '
+
+# Interpreter suchen statt python3 vorauszusetzen: fehlt er, lieferte das alte
+# `python3 -c … 2>/dev/null || true` eine leere Variable, der Hook beendete mit
+# 0 und erlaubte ALLES — ohne eine Zeile auf stderr. Genau der Zustand "sieht
+# geschützt aus, ist es nicht", gegen den das ganze Setup gebaut ist.
+PY=""
+for c in python3 python; do
+  if command -v "$c" >/dev/null 2>&1; then PY="$c"; break; fi
+done
+
+if [ -n "$PY" ]; then
+  FILE="$(printf '%s' "$STDIN_JSON" | "$PY" -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -29,6 +40,25 @@ except Exception:
 ti = d.get("tool_input") or {}
 print(ti.get("file_path", "") if isinstance(ti, dict) else "")
 ' 2>/dev/null || true)"
+else
+  # Fallback ohne Interpreter: erstes "file_path" aus dem Roh-JSON schneiden.
+  # Dekodiert keine JSON-Escapes (\" oder \uXXXX im Pfad) — für reale Pfade
+  # reicht es, und ein eingeschränkt arbeitender Hook schlägt einen aus, der
+  # gar nichts tut.
+  FILE="$(printf '%s' "$STDIN_JSON" \
+    | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    | head -n 1)"
+  {
+    echo "⚠  protect-secrets: kein python3/python gefunden — Pfad-Extraktion läuft"
+    echo "   im sed-Fallback (JSON-Escapes werden nicht dekodiert). Diese Schicht"
+    echo "   ist eingeschränkt; es tragen weiter .githooks/pre-commit und die CI."
+  } >&2
+fi
+
+# Bewusst fail-open, wenn kein Pfad erkennbar ist: welche Datei betroffen ist,
+# steht dann nicht fest — blockieren hieße hier JEDES Edit/Write blockieren,
+# nicht einen Fehlalarm erzeugen. Die harten Garantien liegen ohnehin bei den
+# Scan-Schichten (gitleaks, CI, Push Protection).
 [ -n "$FILE" ] || exit 0
 
 BASE="$(basename "$FILE")"

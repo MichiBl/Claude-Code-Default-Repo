@@ -69,6 +69,25 @@ hook_run_in() { # hook_run_in <projektdir> <hook> — setzt RC (Exit) und ERR (s
   ERR="$(cat "$TMP/stderr.txt" 2>/dev/null || true)"
 }
 
+# PATH-Stub ohne python/python3. Belegt, dass die Hooks in einer Umgebung ohne
+# Interpreter (z. B. Node-only-Container) nicht still durchfallen — CI-Runner
+# haben python3, deshalb fiele genau dieser Fall sonst nie auf.
+# gitleaks fehlt hier bewusst: secret-scan.sh läuft damit deterministisch in
+# seinen dokumentierten (b)-Zweig, egal was auf dem Host installiert ist.
+NOPY_BIN="$TMP/nopy-bin"; mkdir -p "$NOPY_BIN"
+for t in bash cat sed head basename grep git; do
+  p="$(command -v "$t" 2>/dev/null || true)"
+  [ -n "$p" ] && ln -sf "$p" "$NOPY_BIN/$t"
+done
+
+hook_run_nopy() { # hook_run_nopy <projektdir> <hook> <payload> — setzt RC und ERR
+  RC=0
+  printf '%s' "$3" \
+    | env -i PATH="$NOPY_BIN" CLAUDE_PROJECT_DIR="$1" bash "$2" \
+      >/dev/null 2>"$TMP/stderr.txt" || RC=$?
+  ERR="$(cat "$TMP/stderr.txt" 2>/dev/null || true)"
+}
+
 check_contains() { # check_contains <label> <needle> <text>
   local label="$1" needle="$2" text="$3"
   if printf '%s' "$text" | grep -qF -- "$needle"; then
@@ -109,6 +128,16 @@ check "secrets/-Pfad wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write
 check ".env.example bleibt editierbar"     0 "$(hook_exit "$PS" "$(payload_write /proj/.env.example)")"
 check "normale Quelldatei bleibt erlaubt"  0 "$(hook_exit "$PS" "$(payload_write /proj/src/app.ts)")"
 check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
+
+# Ohne Interpreter muss der Hook weiter blocken UND es sagen — vorher fiel er
+# hier lautlos mit exit 0 durch.
+hook_run_nopy "$TMP" "$PS" "$(payload_write /proj/.env)"
+check "ohne python3: .env wird weiter geblockt" 2 "$RC"
+check_contains "ohne python3: Ausfall wird gemeldet" "kein python3/python gefunden" "$ERR"
+check_contains "ohne python3: Backstop wird benannt" "pre-commit" "$ERR"
+
+hook_run_nopy "$TMP" "$PS" "$(payload_write /proj/src/app.ts)"
+check "ohne python3: normale Datei bleibt erlaubt" 0 "$RC"
 
 # --- verify.sh -------------------------------------------------------------------
 echo "== verify.sh =="
@@ -155,6 +184,17 @@ SS="$HOOKS/secret-scan.sh"
 d="$(mkfix scanidle)"
 check "Nicht-Git-Befehl wird durchgewunken" 0 \
   "$(hook_exit_in "$d" "$SS" "$(payload_bash 'ls -la')")"
+
+# Ohne Interpreter blieb CMD leer, die Erkennung matchte nie und der Scan
+# entfiel still. Der (b)-Hinweis auf fehlendes gitleaks belegt, dass der Hook
+# den commit jetzt trotzdem erkennt und bis zum Scan durchläuft.
+hook_run_nopy "$d" "$SS" "$(payload_bash 'git commit -m test')"
+check "ohne python3: Hook blockiert nichts fälschlich" 0 "$RC"
+check_contains "ohne python3: Ausfall wird gemeldet" "kein python3/python gefunden" "$ERR"
+check_contains "ohne python3: commit wird trotzdem erkannt" "gitleaks nicht installiert" "$ERR"
+
+hook_run_nopy "$d" "$SS" "$(payload_bash 'ls -la')"
+check_absent "ohne python3: Nicht-Git-Befehl löst keinen Scan aus" "gitleaks nicht installiert" "$ERR"
 
 if command -v gitleaks >/dev/null 2>&1; then
   # Fake-Key zur Laufzeit zusammensetzen, damit die Secret-Scans dieses Repos
