@@ -315,6 +315,16 @@ run_setup "$d"
 rc=0; [ ! -e "$d/.github/workflows/ci.yml" ] || rc=1
 check "unbekannter Stack -> keine ci.yml angelegt" 0 "$rc"
 
+# Template-eigene Dateien duerfen nicht in Zielprojekte wandern: verify-project.sh
+# wuerde dort die Stack-Autoerkennung von verify.sh abschalten und diesen
+# Selbsttest suchen, hook-selftest.yml wuerde als CI die Template-Hooks testen.
+rc=0; [ ! -e "$d/.claude/hooks/verify-project.sh" ] || rc=1
+check "verify-project.sh wandert nicht ins Zielprojekt" 0 "$rc"
+rc=0; [ ! -e "$d/.github/workflows/hook-selftest.yml" ] || rc=1
+check "hook-selftest.yml wandert nicht ins Zielprojekt" 0 "$rc"
+rc=0; [ -e "$d/.claude/hooks/verify.sh" ] || rc=1
+check "verify.sh (KERN) wird weiterhin kopiert" 0 "$rc"
+
 # --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
 # Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
 # PROJEKT-Dateien (CLAUDE.md & Co.) dürfen und sollen abweichen.

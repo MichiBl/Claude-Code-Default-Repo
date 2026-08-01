@@ -211,14 +211,19 @@ process_file() {
 }
 
 # Vorlagen-Ordner rekursiv verarbeiten (gleicher Name im Zielprojekt).
-# (hook-selftest.yml ist Template-eigene CI — testet die Hooks DIESES Repos —
-# und wandert nicht in Zielprojekte; dort wäre er toter Ballast.)
+# Zwei template-eigene Dateien bleiben bewusst hier:
+#   * hook-selftest.yml   — CI, die die Hooks DIESES Repos testet; im
+#                           Zielprojekt toter Ballast.
+#   * verify-project.sh   — Gate DIESES Repos; im Zielprojekt würde es die
+#                           Stack-Autoerkennung von verify.sh abschalten und
+#                           einen Selbsttest suchen, den es dort nicht gibt.
 process_tree() {
   local dir="$1"
   while IFS= read -r -d '' f; do
     local rel="${f#"$SRC/$dir"/}"
     process_file "$dir/$rel" "$dir/$rel"
-  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' ! -name 'hook-selftest.yml' -print0)
+  done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' \
+    ! -name 'hook-selftest.yml' ! -name 'verify-project.sh' -print0)
 }
 
 case "$MODE" in
