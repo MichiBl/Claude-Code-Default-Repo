@@ -392,6 +392,42 @@ rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
 
+# --- .github/workflows: Action-Pins --------------------------------------------------
+# Dependabot parst *.yml.example NICHT. Es hebt deshalb nur die beiden aktiven
+# Workflows und lässt die CI-Vorlagen auf dem alten SHA stehen — genau so ist
+# hier ein checkout-Pin zweier Versionen entstanden, mit falschem Kommentar.
+# Diese Assertion macht den nächsten solchen Dependabot-PR rot, bis die
+# Vorlagen nachgezogen sind.
+echo "== .github/workflows: Action-Pins =="
+
+pins="$(grep -rhoE 'uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' "$ROOT/.github/workflows" \
+  | sed 's/^uses:[[:space:]]*//' | sort -u)"
+
+rc=0; [ -n "$pins" ] || rc=1
+check "Action-Pins gefunden (Full-SHA, kein Tag)" 0 "$rc"
+
+split="$(printf '%s\n' "$pins" | sed 's/@.*//' | uniq -d)"
+rc=0; [ -z "$split" ] || rc=1
+check "gleiche Action überall derselbe SHA" 0 "$rc"
+[ -z "$split" ] || printf '      uneinheitlich gepinnt: %s\n' "$split"
+
+# Der Versionskommentar ist die einzige menschenlesbare Audit-Fläche eines
+# SHA-Pins. Fehlt er, ist der Pin nur noch eine Hex-Zeichenkette. Geprüft wird
+# nur, DASS er da ist — ob die genannte Version zum SHA gehört, ließe sich nur
+# gegen die GitHub-API klären, und der Selbsttest bleibt bewusst offline.
+rc=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  n_uses="$(grep -cE '^[[:space:]]*uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' "$f")"
+  # Kommentarzeile direkt über jedem uses: (grep -B1 liefert sie mit).
+  n_comment="$(grep -B1 -E '^[[:space:]]*uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' "$f" \
+    | grep -cE '^[[:space:]]*#[[:space:]]*[^[:space:]]+[[:space:]]+v[0-9]')"
+  [ "$n_uses" -eq "$n_comment" ] || rc=1
+done <<EOF
+$(find "$ROOT/.github/workflows" -type f \( -name '*.yml' -o -name '*.yml.example' \))
+EOF
+check "jeder Pin trägt einen Versionskommentar" 0 "$rc"
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits
