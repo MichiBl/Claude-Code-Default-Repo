@@ -1,0 +1,154 @@
+name: Template Pin Check
+
+# Meldet veraltete Action-Pins in den CI-Vorlagen (*.yml.example).
+#
+# Warum es diesen Workflow braucht: Dependabot parst `*.yml.example` NICHT. Es
+# hebt deshalb nur `secret-scan.yml` und `hook-selftest.yml`, waehrend die
+# Vorlagen still altern — und jedes Projekt, das setup.sh daraus erzeugt, erbt
+# den Rueckstand und holt ihn nie auf. Genau so stand `astral-sh/setup-uv`
+# anderthalb Jahre und fuenf Major-Versionen zurueck, bis es jemandem auffiel.
+#
+# Die Selbsttest-Assertion "gleiche Action -> gleicher SHA" faengt nur Actions,
+# die in aktiven Workflows UND Vorlagen vorkommen (praktisch: actions/checkout).
+# setup-node, setup-python und setup-uv sind vorlagen-exklusiv und damit
+# strukturell unbeobachtet. Dieser Workflow schliesst diese Luecke.
+#
+# Warum kein Renovate: Renovate koennte das per Regex-Manager, verlangt dafuer
+# aber eine Third-Party-GitHub-App mit Schreibrechten auf das Repo. Das
+# widerspricht der Begruendung, mit der secret-scan.yml bewusst auf
+# Third-Party-Actions verzichtet — eine unvertraute Abhaengigkeit weniger.
+# Fuer vier Pins ist ein Workflow aus Bordmitteln verhaeltnismaessig.
+#
+# Laeuft NUR in diesem Template-Repo (Repo-Guard unten) und wird von setup.sh
+# NICHT in Zielprojekte kopiert: dort gibt es keine *.yml.example zu pruefen.
+
+on:
+  schedule:
+    # Montags 05:23 UTC — vor dem core-drift-Lauf der Zielprojekte (06:17),
+    # damit ein hier gemeldeter Rueckstand schon sichtbar ist. Krumme Minute,
+    # um nicht zur vollen Stunde um Runner zu konkurrieren.
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Einzige Stelle im Repo mit Schreibrechten: der Workflow legt das Issue an,
+  # das den Befund transportiert. Alle anderen Workflows bleiben read-only.
+  issues: write
+
+concurrency:
+  group: template-pin-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pin-check:
+    name: Vorlagen-Pins gegen Upstream-Tags
+    if: github.repository == 'MichiBl/Claude-Code-Default-Repo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: "Veraltete Action-Pins in den CI-Vorlagen"
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Pins gegen die neuesten Releases pruefen
+        # gh und jq sind auf GitHub-Runnern vorinstalliert. Das Verbot neuer
+        # Laufzeit-Abhaengigkeiten in CLAUDE.md gilt den Hooks — die laufen auf
+        # fremden Maschinen. Dieser Schritt laeuft ausschliesslich hier in der
+        # CI und wandert in kein Zielprojekt.
+        run: |
+          set -euo pipefail
+
+          outdated=""
+          unresolved=""
+
+          while IFS= read -r pin; do
+            [ -n "$pin" ] || continue
+            action="${pin%@*}"
+            sha="${pin#*@}"
+
+            # Dokumentierte Version aus dem Kommentar ueber dem uses:. Erste
+            # Fundstelle genuegt — der Selbsttest erzwingt, dass alle Vorkommen
+            # derselben Action denselben SHA (und damit dieselbe Version) tragen.
+            have="$(grep -rhoE "#[[:space:]]*${action}[[:space:]]+v[0-9][^[:space:]]*" \
+                      .github/workflows/ | head -n1 | sed 's/.*[[:space:]]v/v/')"
+
+            tag="$(gh api "repos/${action}/releases/latest" --jq .tag_name 2>/dev/null || true)"
+            if [ -z "$tag" ]; then
+              unresolved="${unresolved}- \`${action}\`: kein Release ueber die API abrufbar"$'\n'
+              continue
+            fi
+
+            # /commits/<ref> loest sowohl leichtgewichtige als auch annotierte
+            # Tags auf den Commit auf; /git/ref/tags/<tag> taete das nicht.
+            latest="$(gh api "repos/${action}/commits/${tag}" --jq .sha 2>/dev/null || true)"
+            if [ -z "$latest" ]; then
+              unresolved="${unresolved}- \`${action}\`: Tag ${tag} nicht auf einen Commit aufloesbar"$'\n'
+              continue
+            fi
+
+            if [ "$sha" != "$latest" ]; then
+              outdated="${outdated}- \`${action}\` — gepinnt **${have:-?}** (\`${sha}\`), aktuell **${tag}** (\`${latest}\`)"$'\n'
+            fi
+          done <<EOF
+          $(grep -rhoE 'uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' \
+              .github/workflows/*.yml.example | sed 's/uses:[[:space:]]*//' | sort -u)
+          EOF
+
+          # Nicht aufloesbare Actions sind ein Befund fuer sich: stillschweigend
+          # zu ueberspringen hiesse "geprueft" melden, ohne geprueft zu haben.
+          if [ -n "$unresolved" ]; then
+            printf '::warning::Nicht pruefbare Actions:\n%s' "$unresolved"
+          fi
+
+          {
+            echo "## Vorlagen-Pins"
+            if [ -n "$outdated" ]; then
+              echo
+              echo "$outdated"
+            else
+              echo
+              echo "Alle Pins in \`*.yml.example\` entsprechen dem neuesten Release."
+            fi
+            if [ -n "$unresolved" ]; then
+              echo
+              echo "### Nicht pruefbar"
+              echo
+              echo "$unresolved"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          existing="$(gh issue list --state open --search "$ISSUE_TITLE in:title" \
+                        --json number --jq '.[0].number // empty')"
+
+          if [ -z "$outdated" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" \
+                --comment "Alle Vorlagen-Pins sind wieder aktuell — automatisch geschlossen."
+            fi
+            echo "Alle Pins aktuell."
+            exit 0
+          fi
+
+          body="$(printf '%s\n%s\n%s\n' \
+            "Dependabot parst \`*.yml.example\` nicht — diese Pins altern still und werden von jedem daraus erzeugten Projekt geerbt." \
+            "$outdated" \
+            "Beheben: SHA **und** Versionskommentar in allen betroffenen Vorlagen heben, Breaking Changes der uebersprungenen Versionen gegen die tatsaechliche Nutzung pruefen. Zuletzt geprueft: siehe Known Issues in CLAUDE.md.")"
+
+          # Label kann fehlen, wenn es nie angelegt wurde — dann waere
+          # `issue create --label` ein harter Fehlschlag.
+          gh label create maintenance --color d4c5f9 \
+            --description "Wartung: veraltete Pins, Aufraeumarbeiten" >/dev/null 2>&1 || true
+
+          if [ -n "$existing" ]; then
+            # Aktualisieren statt kommentieren: ein woechentlicher Kommentar
+            # waere Rauschen, und der Body soll immer den aktuellen Stand zeigen.
+            printf '%s' "$body" | gh issue edit "$existing" --body-file -
+            echo "Issue #${existing} aktualisiert."
+          else
+            printf '%s' "$body" | gh issue create --title "$ISSUE_TITLE" \
+              --label maintenance --body-file -
+          fi

@@ -9,11 +9,16 @@
 #   * Branch-Ruleset(s) aus .github/rulesets/*.json (Import, nie überschreiben)
 #
 # Verwendung:
-#   ./setup-github.sh /pfad/zum/projekt [--check "<Status-Check-Name>"]...
+#   ./setup-github.sh /pfad/zum/projekt [--dry-run] [--check "<Status-Check-Name>"]...
 #
 #   --check fügt dem Ruleset zusätzliche Required Status Checks hinzu
 #   (der gitleaks-Check ist in der Vorlage schon enthalten), z. B.:
 #   ./setup-github.sh ../mein-projekt --check "lint • typecheck • test (uv)"
+#
+#   --dry-run meldet nur, was serverseitig geändert würde, und führt keinen
+#   schreibenden gh-Aufruf aus. Lesende Aufrufe laufen weiter — der Dry-Run
+#   nimmt damit denselben Entscheidungsweg wie der Echtlauf und sieht z. B.,
+#   welche Rulesets schon existieren und deshalb übersprungen würden.
 #
 # Voraussetzungen: gh (GitHub CLI, eingeloggt via 'gh auth login'), git, python3.
 # Das Skript ist idempotent: Vorhandene Rulesets gleichen Namens werden
@@ -29,12 +34,13 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 TARGET="${1:-}"
 if [ -z "$TARGET" ] || [ ! -d "$TARGET" ]; then
-  echo "Verwendung: ./setup-github.sh /pfad/zum/projekt [--check \"<Name>\"]..." >&2
+  echo "Verwendung: ./setup-github.sh /pfad/zum/projekt [--dry-run] [--check \"<Name>\"]..." >&2
   exit 1
 fi
 shift
 TARGET="$(cd "$TARGET" && pwd)"
 
+DRY_RUN=0
 EXTRA_CHECKS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -42,6 +48,10 @@ while [ $# -gt 0 ]; do
       [ -n "${2:-}" ] || { echo "--check braucht ein Argument." >&2; exit 1; }
       EXTRA_CHECKS+=("$2")
       shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
       ;;
     *)
       echo "Unbekanntes Argument: $1" >&2
@@ -63,16 +73,30 @@ if [ -z "$REPO" ]; then
   exit 1
 fi
 
-echo "GitHub-Schutzschalter für $REPO"
+if [ "$DRY_RUN" = 1 ]; then
+  echo "GitHub-Schutzschalter für $REPO — DRY-RUN, es wird nichts geändert"
+else
+  echo "GitHub-Schutzschalter für $REPO"
+fi
 echo
 
+# Jeder schreibende Aufruf steht hinter einer expliziten DRY_RUN-Verzweigung
+# statt hinter einem Wrapper: unter `set -e` müsste ein Wrapper seinen
+# "übersprungen"-Fall über einen Exit-Code melden, den jeder Aufrufer wieder
+# abfangen müsste — und ein Dry-Run, der versehentlich "✓ aktiviert" meldet,
+# wäre schlimmer als keiner.
+
 # --- Dependabot ------------------------------------------------------------
-if gh api -X PUT "repos/$REPO/vulnerability-alerts" --silent 2>/dev/null; then
+if [ "$DRY_RUN" = 1 ]; then
+  echo "  ○  würde Dependabot alerts aktivieren"
+elif gh api -X PUT "repos/$REPO/vulnerability-alerts" --silent 2>/dev/null; then
   echo "  ✓  Dependabot alerts aktiviert"
 else
   echo "  ⚠  Dependabot alerts konnten nicht aktiviert werden (Rechte/Plan prüfen)"
 fi
-if gh api -X PUT "repos/$REPO/automated-security-fixes" --silent 2>/dev/null; then
+if [ "$DRY_RUN" = 1 ]; then
+  echo "  ○  würde Dependabot security updates (Auto-Fix-PRs) aktivieren"
+elif gh api -X PUT "repos/$REPO/automated-security-fixes" --silent 2>/dev/null; then
   echo "  ✓  Dependabot security updates (Auto-Fix-PRs) aktiviert"
 else
   echo "  ⚠  Dependabot security updates konnten nicht aktiviert werden"
@@ -81,7 +105,9 @@ fi
 # --- Secret scanning + Push protection -------------------------------------
 # Bei privaten Repos ohne Advanced Security lehnt die API das ab — das ist
 # okay: gitleaks (Hook + CI) übernimmt diese Rolle dann allein.
-if printf '%s' '{"security_and_analysis":{"secret_scanning":{"status":"enabled"},"secret_scanning_push_protection":{"status":"enabled"}}}' \
+if [ "$DRY_RUN" = 1 ]; then
+  echo "  ○  würde Secret scanning + Push protection aktivieren"
+elif printf '%s' '{"security_and_analysis":{"secret_scanning":{"status":"enabled"},"secret_scanning_push_protection":{"status":"enabled"}}}' \
   | gh api -X PATCH "repos/$REPO" --input - --silent 2>/dev/null; then
   echo "  ✓  Secret scanning + Push protection aktiviert"
 else
@@ -120,7 +146,11 @@ for rule in ruleset.get("rules", []):
 print(json.dumps(ruleset))
 PYEOF
 )"
-  if printf '%s' "$payload" | gh api -X POST "repos/$REPO/rulesets" --input - --silent 2>/dev/null; then
+  # Das Payload wird auch im Dry-Run gebaut: schlägt die JSON-Verarbeitung fehl,
+  # ist das ein Befund, den der Probelauf zeigen soll.
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "  ○  würde Ruleset importieren: $name"
+  elif printf '%s' "$payload" | gh api -X POST "repos/$REPO/rulesets" --input - --silent 2>/dev/null; then
     echo "  ✓  Ruleset importiert: $name"
   else
     echo "  ⚠  Ruleset '$name' konnte nicht importiert werden — alternativ von Hand:"
@@ -130,6 +160,10 @@ done
 [ "$found_any" = 1 ] || echo "  ℹ  Keine Ruleset-Vorlagen unter $RULESET_DIR gefunden."
 
 echo
+if [ "$DRY_RUN" = 1 ]; then
+  echo "Dry-Run beendet — es wurde nichts geändert. Ohne --dry-run erneut ausführen."
+  exit 0
+fi
 echo "Fertig. Kontrolle im Browser: https://github.com/$REPO/settings/rules"
 echo "Hinweis: Auf privaten Free-Plan-Repos werden Rulesets gespeichert, aber"
 echo "nicht durchgesetzt — die CI-Gates auf jedem PR gelten trotzdem."

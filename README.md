@@ -24,9 +24,17 @@ erlauben (Rest wird gemeldet, nicht abgebrochen):
 
 ```bash
 # einmalig: brew install gh && gh auth login
+
+# erst ansehen, was serverseitig passieren würde — ändert nichts:
+./Claude-Code-Default-Repo/setup-github.sh /pfad/zum/projekt --dry-run
+
 ./Claude-Code-Default-Repo/setup-github.sh /pfad/zum/projekt \
   --check "lint • typecheck • test (uv)"   # CI-Job-Name(n) des Projekts
 ```
+
+`--dry-run` setzt keinen schreibenden Aufruf ab, nimmt aber denselben
+Entscheidungsweg wie der Echtlauf — es sieht also auch, welche Rulesets schon
+existieren und deshalb übersprungen würden.
 
 Das aktiviert Dependabot alerts + Auto-Fix-PRs, Secret scanning + Push
 protection (falls der Plan es hergibt) und importiert das Branch-Ruleset
@@ -143,6 +151,7 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
     ├── secret-scan.yml          # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
     ├── core-drift.yml.example   # meldet wöchentlich, wenn der Kern veraltet ist (umbenennen)
     ├── hook-selftest.yml        # testet die Schutz-Hooks — nur Template-Repo, wird NICHT kopiert
+    ├── template-pin-check.yml   # meldet veraltete Pins der Vorlagen — dito, wird NICHT kopiert
     ├── ci-node.yml.example      # Lint • tsc • Test • Build  (setup.sh aktiviert sie als ci.yml)
     ├── ci-python-uv.yml.example  # ruff • pip-audit • pytest   (setup.sh wählt sie bei uv.lock)
     └── ci-python-pip.yml.example # ruff • mypy • pytest        (setup.sh wählt sie sonst)
@@ -251,3 +260,9 @@ Best-Effort — verlässlich blocken erst die Scan-Schichten darunter.
    `/feature`-Pipeline verweigert den Start ohne (ebenso ohne Lint-Gate).
    Das erledigt `/bootstrap [stack]` in Claude Code: Linter, Test-Runner
    mit Smoke-Test und CI in einem Rutsch.
+
+## Lizenz
+
+[MIT](LICENSE). Der Werkzeugkasten wird per `setup.sh` wortwörtlich in andere
+Projekte kopiert — die MIT-Bedingungen (Copyright-Hinweis erhalten) gelten
+damit auch für die kopierten Dateien.
