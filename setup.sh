@@ -218,13 +218,17 @@ process_file() {
 #   * verify-project.sh   — Gate DIESES Repos; im Zielprojekt würde es die
 #                           Stack-Autoerkennung von verify.sh abschalten und
 #                           einen Selbsttest suchen, den es dort nicht gibt.
+#   * template-pin-check.yml — prüft die *.yml.example dieses Repos; ein
+#                           Zielprojekt hat keine und bekäme einen Workflow,
+#                           der nichts findet und Schreibrechte verlangt.
 process_tree() {
   local dir="$1"
   while IFS= read -r -d '' f; do
     local rel="${f#"$SRC/$dir"/}"
     process_file "$dir/$rel" "$dir/$rel"
   done < <(find "$SRC/$dir" -type f ! -name '.DS_Store' \
-    ! -name 'hook-selftest.yml' ! -name 'verify-project.sh' -print0)
+    ! -name 'hook-selftest.yml' ! -name 'verify-project.sh' \
+    ! -name 'template-pin-check.yml' -print0)
 }
 
 case "$MODE" in

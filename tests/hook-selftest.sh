@@ -346,6 +346,8 @@ rc=0; [ ! -e "$d/.claude/hooks/verify-project.sh" ] || rc=1
 check "verify-project.sh wandert nicht ins Zielprojekt" 0 "$rc"
 rc=0; [ ! -e "$d/.github/workflows/hook-selftest.yml" ] || rc=1
 check "hook-selftest.yml wandert nicht ins Zielprojekt" 0 "$rc"
+rc=0; [ ! -e "$d/.github/workflows/template-pin-check.yml" ] || rc=1
+check "template-pin-check.yml wandert nicht ins Zielprojekt" 0 "$rc"
 rc=0; [ -e "$d/.claude/hooks/verify.sh" ] || rc=1
 check "verify.sh (KERN) wird weiterhin kopiert" 0 "$rc"
 

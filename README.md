@@ -143,6 +143,7 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
     ├── secret-scan.yml          # CI-Backstop: gitleaks über volle Historie (sofort aktiv)
     ├── core-drift.yml.example   # meldet wöchentlich, wenn der Kern veraltet ist (umbenennen)
     ├── hook-selftest.yml        # testet die Schutz-Hooks — nur Template-Repo, wird NICHT kopiert
+    ├── template-pin-check.yml   # meldet veraltete Pins der Vorlagen — dito, wird NICHT kopiert
     ├── ci-node.yml.example      # Lint • tsc • Test • Build  (setup.sh aktiviert sie als ci.yml)
     ├── ci-python-uv.yml.example  # ruff • pip-audit • pytest   (setup.sh wählt sie bei uv.lock)
     └── ci-python-pip.yml.example # ruff • mypy • pytest        (setup.sh wählt sie sonst)

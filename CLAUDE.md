@@ -70,10 +70,15 @@ zu — `is_core()` in `setup.sh` ist die maßgebliche Definition.
 
 Dazu eine dritte, ungeschriebene Sorte: **template-eigene Dateien**, die in
 keinem Zielprojekt etwas zu suchen haben. Aktuell
-`.github/workflows/hook-selftest.yml` und `.claude/hooks/verify-project.sh`.
-Sie werden in `process_tree()` namentlich vom Kopieren ausgeschlossen, und je
-eine Assertion im Selbsttest belegt, dass sie nach einem `setup.sh`-Lauf im
-Ziel fehlen. Legst du eine weitere solche Datei an, gehört sie in beide Listen.
+`.github/workflows/hook-selftest.yml`, `.github/workflows/template-pin-check.yml`
+und `.claude/hooks/verify-project.sh`. Sie werden in `process_tree()` namentlich
+vom Kopieren ausgeschlossen, und je eine Assertion im Selbsttest belegt, dass
+sie nach einem `setup.sh`-Lauf im Ziel fehlen. Legst du eine weitere solche
+Datei an, gehört sie in beide Listen.
+
+`LICENSE` gehört ebenfalls nicht ins Zielprojekt, kommt aber ohne Ausschluss
+aus: `setup.sh` verarbeitet im Wurzelverzeichnis nur namentlich genannte
+Dateien. Dasselbe gilt für `README.md` und alles unter `tests/`.
 
 ## Arbeitsweise
 
@@ -202,6 +207,9 @@ plus Assertion, also `/fix`-Format. Was immer gilt:
   diesen Namen.
 - `hook-selftest.yml` — shellcheck + `tests/hook-selftest.sh`. Läuft per
   Repo-Guard nur in diesem Repo.
+- `template-pin-check.yml` — wöchentlich; prüft die Action-Pins der
+  `*.yml.example` gegen die neuesten Upstream-Releases und meldet Abweichungen
+  als Issue. Repo-Guard, einziger Workflow mit `issues: write`.
 - `ci-*.yml.example` und `core-drift.yml.example` sind Vorlagen für
   Zielprojekte und laufen hier nicht.
 
@@ -209,12 +217,13 @@ Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
 
 ## Known Issues & Technical Debt
 
-- Die Pins in `*.yml.example` altern still: Dependabot parst diese Dateien
-  nicht, hebt also nur `secret-scan.yml` und `hook-selftest.yml`. Die
-  Selbsttest-Assertion „gleiche Action → gleicher SHA" fängt das nur für
-  Actions, die in beiden Sorten vorkommen (`actions/checkout`). `setup-node`,
-  `setup-python` und `setup-uv` stehen nur in Vorlagen — die muss man von Hand
-  gegen die Upstream-Tags prüfen. Zuletzt geschehen: 2026-08-01.
+- Die Pins in `*.yml.example` altern weiter still — Dependabot parst diese
+  Dateien nicht —, aber es fällt jetzt auf: `template-pin-check.yml` vergleicht
+  wöchentlich gegen die Upstream-Releases und öffnet bei Abweichung ein Issue
+  (Label `maintenance`, genau eines, wird aktualisiert statt dupliziert).
+  **Das Heben selbst bleibt Handarbeit**, samt Prüfung der Breaking Changes
+  übersprungener Major-Versionen gegen die tatsächliche Nutzung.
+  Zuletzt geschehen: 2026-08-01.
 - Die Agenten-Tests im Selbsttest prüfen nur Struktur-Marker, nicht Verhalten
   — LLM-Ausgaben sind deterministisch nicht prüfbar.
 - `setup.sh --diff` erkennt Kern-Verfall nur, wenn es jemand ausführt.
