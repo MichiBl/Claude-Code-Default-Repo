@@ -24,9 +24,17 @@ erlauben (Rest wird gemeldet, nicht abgebrochen):
 
 ```bash
 # einmalig: brew install gh && gh auth login
+
+# erst ansehen, was serverseitig passieren würde — ändert nichts:
+./Claude-Code-Default-Repo/setup-github.sh /pfad/zum/projekt --dry-run
+
 ./Claude-Code-Default-Repo/setup-github.sh /pfad/zum/projekt \
   --check "lint • typecheck • test (uv)"   # CI-Job-Name(n) des Projekts
 ```
+
+`--dry-run` setzt keinen schreibenden Aufruf ab, nimmt aber denselben
+Entscheidungsweg wie der Echtlauf — es sieht also auch, welche Rulesets schon
+existieren und deshalb übersprungen würden.
 
 Das aktiviert Dependabot alerts + Auto-Fix-PRs, Secret scanning + Push
 protection (falls der Plan es hergibt) und importiert das Branch-Ruleset

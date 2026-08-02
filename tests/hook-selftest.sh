@@ -447,6 +447,69 @@ rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
 
+# --- setup-github.sh: --dry-run ------------------------------------------------------
+# Das Skript schaltet serverseitig (Dependabot, Secret scanning, Push protection,
+# Rulesets) — alles unsichtbar, bis es passiert ist. --dry-run soll denselben
+# Entscheidungsweg nehmen, aber keinen schreibenden Aufruf absetzen.
+echo "== setup-github.sh: --dry-run =="
+SGH="$ROOT/setup-github.sh"
+
+# gh-Stub: bedient lesende Aufrufe und protokolliert jeden schreibenden in eine
+# Datei. Die Datei ist der Beweis, nicht die Stub-Ausgabe — jeder gh-Aufruf in
+# setup-github.sh schickt sein stderr nach /dev/null, eine Meldung des Stubs
+# käme dort also nie an und die Assertion wäre immer grün.
+GH_BIN="$TMP/gh-bin"; mkdir -p "$GH_BIN"
+for t in bash git python3 grep sed cat printf basename dirname mktemp; do
+  p="$(command -v "$t" 2>/dev/null || true)"
+  [ -n "$p" ] && ln -sf "$p" "$GH_BIN/$t"
+done
+cat > "$GH_BIN/gh" <<'GHSTUB'
+#!/usr/bin/env bash
+for a in "$@"; do
+  case "$a" in
+    PUT|POST|PATCH|DELETE)
+      echo "schreibender Aufruf: gh $*" >> "$GH_WRITE_LOG"
+      exit 66 ;;
+  esac
+done
+case "${1:-} ${2:-}" in
+  "repo view") echo "MichiBl/dry-run-fixture" ;;
+  *) ;;   # rulesets-Abfrage u. a.: leere Antwort = nichts vorhanden
+esac
+GHSTUB
+chmod +x "$GH_BIN/gh"
+
+d="$(mkfix dryrun)"
+run_setup "$d"
+GH_WRITE_LOG="$TMP/gh-writes.txt"; : > "$GH_WRITE_LOG"
+rc=0
+out="$(env PATH="$GH_BIN:$PATH" GH_WRITE_LOG="$GH_WRITE_LOG" \
+        bash "$SGH" "$d" --dry-run 2>&1)" || rc=$?
+check "--dry-run laeuft durch, ohne zu schreiben" 0 "$rc"
+check_contains "--dry-run kuendigt Dependabot an"      "würde Dependabot alerts" "$out"
+check_contains "--dry-run kuendigt Push protection an" "würde Secret scanning"   "$out"
+check_contains "--dry-run kuendigt den Ruleset-Import an" "würde Ruleset importieren" "$out"
+check_contains "--dry-run sagt, dass nichts geaendert wurde" "nichts geändert" "$out"
+check_absent  "--dry-run behauptet nirgends 'aktiviert'" "✓  Dependabot alerts aktiviert" "$out"
+rc=0; [ ! -s "$GH_WRITE_LOG" ] || rc=1
+check "kein schreibender gh-Aufruf abgesetzt" 0 "$rc"
+[ ! -s "$GH_WRITE_LOG" ] || sed 's/^/      /' "$GH_WRITE_LOG"
+
+# Gegenprobe, dass der Stub ueberhaupt anschlaegt: derselbe Lauf OHNE --dry-run
+# muss schreibende Aufrufe produzieren. Ohne diese Kontrolle waere die
+# Assertion oben auch dann gruen, wenn der Stub gar nicht greift.
+: > "$GH_WRITE_LOG"
+env PATH="$GH_BIN:$PATH" GH_WRITE_LOG="$GH_WRITE_LOG" \
+  bash "$SGH" "$d" >/dev/null 2>&1 || true
+rc=0; [ -s "$GH_WRITE_LOG" ] || rc=1
+check "ohne --dry-run schlaegt der Stub an (Kontrolle)" 0 "$rc"
+
+# Die Voraussetzungspruefung darf --dry-run nicht durchwinken: ohne gh ist auch
+# der Probelauf wertlos, weil er den Entscheidungsweg nicht nachvollziehen kann.
+rc=0
+env -i PATH="$NOPY_BIN" bash "$SGH" "$d" --dry-run >/dev/null 2>&1 || rc=$?
+check "--dry-run ohne gh bricht weiterhin ab" 1 "$rc"
+
 # --- .github/workflows: Action-Pins --------------------------------------------------
 # Dependabot parst *.yml.example NICHT. Es hebt deshalb nur die beiden aktiven
 # Workflows und lässt die CI-Vorlagen auf dem alten SHA stehen — genau so ist
