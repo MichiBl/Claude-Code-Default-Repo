@@ -251,3 +251,9 @@ Best-Effort — verlässlich blocken erst die Scan-Schichten darunter.
    `/feature`-Pipeline verweigert den Start ohne (ebenso ohne Lint-Gate).
    Das erledigt `/bootstrap [stack]` in Claude Code: Linter, Test-Runner
    mit Smoke-Test und CI in einem Rutsch.
+
+## Lizenz
+
+[MIT](LICENSE). Der Werkzeugkasten wird per `setup.sh` wortwörtlich in andere
+Projekte kopiert — die MIT-Bedingungen (Copyright-Hinweis erhalten) gelten
+damit auch für die kopierten Dateien.

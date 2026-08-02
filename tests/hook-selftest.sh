@@ -360,6 +360,12 @@ check "kopierte CLAUDE.md ist byte-identisch zu templates/CLAUDE.md" 0 "$rc"
 rc=0; [ -e "$d/.github/workflows/core-drift.yml.example" ] || rc=1
 check "core-drift.yml.example wandert ins Zielprojekt" 0 "$rc"
 
+# Die LICENSE deckt DIESES Repo ab. Ein Zielprojekt waehlt seine Lizenz selbst —
+# ihm eine fremde ins Wurzelverzeichnis zu legen waere eine Rechtsaussage, die
+# setup.sh nicht treffen darf.
+rc=0; [ ! -e "$d/LICENSE" ] || rc=1
+check "LICENSE wandert nicht ins Zielprojekt" 0 "$rc"
+
 # --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
 # Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
 # PROJEKT-Dateien (CLAUDE.md & Co.) dürfen und sollen abweichen.
