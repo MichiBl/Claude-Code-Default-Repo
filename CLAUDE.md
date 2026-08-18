@@ -177,6 +177,14 @@ schützt, ist die Secret-Hygiene der Projekte, in die es kopiert wird:
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.
 4. GitHub Push Protection (per `setup-github.sh` aktiviert).
 
+Alle Schichten schützen die Git-Historie bzw. direkte Tool-Zugriffe. Das
+**Auslesen** von Secrets zur Laufzeit über die Shell (`cat .env`, Upload per
+curl) deckt keine davon ab — dort ist die Grenze der Permission-Prompt von
+Claude Code. Zweites bewusstes Restrisiko: `core-drift.yml.example` führt in
+Zielprojekten `setup.sh` aus einem frischen Klon dieses Repos aus — wer
+dieses Repo kompromittiert, erreicht deren CI (Mitigation: der Workflow läuft
+mit `contents: read`, ohne Secrets).
+
 Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar.
 `.env.example` ist der bewusste blinde Fleck aller gitleaks-Schichten — dort
 dürfen NUR Platzhalter stehen. Deshalb ist es auch die einzige Datei, die

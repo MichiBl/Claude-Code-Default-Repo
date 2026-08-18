@@ -16,6 +16,10 @@
 #   (a) kein git commit/push im Befehl -> exit 0
 #   (b) gitleaks nicht installiert    -> exit 0 mit Hinweis (CI ist Backstop)
 #
+# Bekannte Lücken (Best-Effort, die Backstops tragen): git-Aliasse (`git ci`),
+# Commits aus Skripten/eval heraus, und der Push-Zweig scannt upstream..HEAD —
+# `git push origin <anderer-branch>` trifft also den falschen Bereich.
+#
 # Ein Secret, das im Remote landet, gilt als kompromittiert — rotieren,
 # nicht nur den Commit entfernen.
 

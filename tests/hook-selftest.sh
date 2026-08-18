@@ -128,6 +128,11 @@ check "secrets/-Pfad wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write
 check ".env.example bleibt editierbar"     0 "$(hook_exit "$PS" "$(payload_write /proj/.env.example)")"
 check ".env.dist wird geblockt"            2 "$(hook_exit "$PS" "$(payload_write /proj/.env.dist)")"
 check ".env.template wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write /proj/.env.template)")"
+check ".npmrc wird geblockt"               2 "$(hook_exit "$PS" "$(payload_write /proj/.npmrc)")"
+check ".netrc wird geblockt"               2 "$(hook_exit "$PS" "$(payload_write /proj/.netrc)")"
+check "Keystore (*.p12) wird geblockt"     2 "$(hook_exit "$PS" "$(payload_write /proj/certs/keystore.p12)")"
+check "service-account*.json wird geblockt" 2 "$(hook_exit "$PS" "$(payload_write /proj/service-account-prod.json)")"
+check "SSH-Key (id_rsa) wird geblockt"     2 "$(hook_exit "$PS" "$(payload_write /proj/id_rsa)")"
 check "normale Quelldatei bleibt erlaubt"  0 "$(hook_exit "$PS" "$(payload_write /proj/src/app.ts)")"
 check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
 
@@ -545,6 +550,43 @@ done <<EOF
 $(find "$ROOT/.github/workflows" -type f \( -name '*.yml' -o -name '*.yml.example' \))
 EOF
 check "jeder Pin trägt einen Versionskommentar" 0 "$rc"
+
+# --- Secret-Dateitypen: drei Schichten, eine Aufzählung ----------------------------
+# deny-Regeln (settings.json), protect-secrets.sh und .gitignore sind drei
+# unabhängig gepflegte Listen derselben Muster. Wird ein Muster nur in einer
+# ergänzt, fehlt es in den anderen still — genau so sind id_rsa & Co. anfangs
+# nur im Hook gelandet. Der Abgleich läuft über eine Kanon-Liste.
+echo "== Secret-Muster in allen drei Schichten =="
+rc=0
+for needle in .env .pem .key .p12 .pfx id_rsa id_ed25519 credentials service-account .npmrc .pypirc .netrc; do
+  for f in .claude/settings.json .claude/hooks/protect-secrets.sh .gitignore; do
+    if ! grep -qF -- "$needle" "$ROOT/$f"; then
+      echo "      ✗ '$needle' fehlt in $f"; rc=1
+    fi
+  done
+done
+check "jedes Secret-Muster in deny + protect-secrets + .gitignore" 0 "$rc"
+
+# --- gitleaks-Binary-Pin (Version + SHA-256) ---------------------------------------
+# Der im Workflow gepinnte Hash ist die einzige Schicht, die ein
+# kompromittiertes Release erkennt — die checksums.txt des Releases käme aus
+# derselben Quelle wie das Binary. Laufen die Pins der beiden Workflows
+# auseinander, testet der Selbsttest zudem eine andere gitleaks-Version als
+# das harte Gate.
+echo "== gitleaks-Binary-Pin =="
+WF1="$ROOT/.github/workflows/secret-scan.yml"
+WF2="$ROOT/.github/workflows/hook-selftest.yml"
+rc=0
+for var in GITLEAKS_VERSION GITLEAKS_SHA256; do
+  n="$(grep -h "${var}:" "$WF1" "$WF2" | grep -c .)"
+  u="$(grep -h "${var}:" "$WF1" "$WF2" | sed 's/.*"\([^"]*\)".*/\1/' | sort -u | grep -c .)"
+  { [ "$n" -eq 2 ] && [ "$u" -eq 1 ]; } || { echo "      ✗ $var: $n Vorkommen, $u verschiedene Werte (soll: 2/1)"; rc=1; }
+done
+check "gitleaks-Pin (Version + SHA) in beiden Workflows identisch" 0 "$rc"
+
+sha="$(grep -h 'GITLEAKS_SHA256:' "$WF1" | sed 's/.*"\([^"]*\)".*/\1/')"
+rc=0; printf '%s' "$sha" | grep -Eq '^[0-9a-f]{64}$' || rc=1
+check "GITLEAKS_SHA256 ist ein voller SHA-256" 0 "$rc"
 
 # --- .github/dependabot.yml: cooldown ----------------------------------------------
 # Ein kompromittiertes Release hat am Erscheinungstag noch keinen CVE-Eintrag:

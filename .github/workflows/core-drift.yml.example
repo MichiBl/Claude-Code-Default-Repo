@@ -11,6 +11,11 @@
 #
 # Rot heißt nicht "kaputt", sondern "Kern veraltet". Beheben:
 #   ./setup.sh --update .   (aus einem Klon des Templates), dann committen.
+#
+# Vertrauenskette (bewusstes Restrisiko): der Workflow klont das Template und
+# führt dessen setup.sh aus — wer das Template-Repo kompromittiert, erreicht
+# damit die CI dieses Projekts. Deshalb läuft der Job strikt mit
+# `contents: read` und ohne Secret-Zugriff; hier nie mehr Rechte ergänzen.
 
 name: Core Drift
 

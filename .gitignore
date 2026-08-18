@@ -5,7 +5,17 @@
 secrets/
 *.pem
 *.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
 credentials*.json
+service-account*.json
+# .npmrc/.pypirc/.netrc können Auth-Tokens enthalten. Braucht ein Projekt eine
+# committete, token-freie Registry-Config, die Zeile gezielt entfernen.
+.npmrc
+.pypirc
+.netrc
 
 # Lokale Claude-Code-Einstellungen (nur die geteilte settings.json committen)
 .claude/settings.local.json
