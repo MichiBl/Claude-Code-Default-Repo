@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Orchestriert ein Feature end-to-end durch die feste Pipeline requirements -> architecture -> implementation -> code-review -> QA -> Draft-PR. Nutze dies, wenn der User `/feature <beschreibung>` tippt, ein neues nicht-triviales Feature möchte ("baue …", "implementiere …") oder explizit das "Agent-Team" verlangt. NICHT für Typos, Einzeiler-Bugfixes oder reine Fragen.
+description: Orchestriert ein Feature end-to-end durch die feste Pipeline requirements -> architecture -> tests (RED) -> implementation -> code-review -> QA (GREEN) -> Draft-PR. Nutze dies, wenn der User `/feature <beschreibung>` tippt, ein neues nicht-triviales Feature möchte ("baue …", "implementiere …") oder explizit das "Agent-Team" verlangt. NICHT für Typos, Einzeiler-Bugfixes oder reine Fragen.
 ---
 
 # /feature — Agent-Team-Pipeline
@@ -76,9 +76,23 @@ Files (Zahlen), Risiken. Verlangt der Plan **neue Dependencies** oder
 
 > **GATE 2 — echte User-Bestätigung (Pflicht).** Erst nach klarem OK zu Schritt 3.
 
-### 3. Implementation — DU, der Haupt-Agent
+### 3. Tests zuerst (`qa-engineer`, RED-Phase)
+
+Delegiere mit Slug + Verweis auf die freigegebene `architecture.md` und dem
+expliziten Hinweis **RED-Phase**. Der Agent schreibt pro Acceptance Criterion
+echte Tests gegen die geplanten Schnittstellen, führt sie aus und meldet sie
+**rot** zurück — die Implementierung existiert noch nicht.
+
+- Rot ist hier das Erfolgskriterium: Ein Test, der schon jetzt grün ist,
+  prüft das Feature nicht (er testet Bestand oder gar nichts).
+- Ist ein AC gegen die geplanten Schnittstellen nicht testbar, ist das ein
+  Architektur-Problem — zurück zu Schritt 2, nicht weiterlaufen.
+
+### 4. Implementation — DU, der Haupt-Agent
 
 Setze den freigegebenen Plan **selbst** um:
+- Ziel ist, die RED-Tests aus Schritt 3 grün zu machen — ohne sie
+  abzuschwächen oder zu löschen.
 - Halte dich an die Affected Files und nutze die gelisteten Reused Utilities.
 - Respektiere Konventionen und harte Grenzen aus `CLAUDE.md`.
 - Verfolge Multi-File-Arbeit mit der Task-Liste.
@@ -87,28 +101,30 @@ Setze den freigegebenen Plan **selbst** um:
 
 Fasse am Ende zusammen, was sich geändert hat (Pfade, Kernentscheidungen).
 
-### 4. Code Review (`code-reviewer`)
+### 5. Code Review (`code-reviewer`)
 
 Delegiere mit Slug + Hinweis, dass die Implementierung auf dem aktuellen
 Branch liegt. Ergebnis: `docs/features/<slug>/code-review.md` mit Verdict.
 
-- **APPROVED** -> weiter zu Schritt 5.
+- **APPROVED** -> weiter zu Schritt 6.
 - **NEEDS_CHANGES** -> arbeite die Required Fixes selbst ein, dann
   `code-reviewer` erneut, bis APPROVED. Nie mit offenen Fixes weitergehen.
 - **BLOCKED** -> stoppe, lege es dem User vor (`AskUserQuestion`): zurück zu
   Schritt 1 (Requirements) oder Schritt 2 (Architektur)?
 
-### 5. QA (`qa-engineer`)
+### 6. QA (`qa-engineer`, GREEN-Phase)
 
-Delegiere mit Slug + Hinweis auf das APPROVED-Review. Der Agent schreibt
-`qa-plan.md` + echte Tests und führt Lint/Typecheck/Tests aus.
+Delegiere mit Slug + Hinweis auf das APPROVED-Review und dem expliziten
+Hinweis **GREEN-Phase**. Der Agent verifiziert die RED-Tests aus Schritt 3
+gegen den tatsächlichen Diff, ergänzt Edge-Case-Tests, finalisiert
+`qa-plan.md` und führt Lint/Typecheck/Tests aus.
 
 - Fehlschlag "needs implementer fix" -> du fixt selbst, dann `code-reviewer`
   re-verifizieren (ein Fix kann neue Drift einführen), dann QA erneut.
 - Fehlschlag "needs requirements clarification" -> User fragen, zurück zu
   Schritt 1 mit der Klärung.
 
-### 6. Draft-PR
+### 7. Draft-PR
 
 Erst wenn Review APPROVED **und** QA grün:
 - Branch: falls auf `main`/`master`, zuerst Feature-Branch anlegen
@@ -144,6 +160,8 @@ Erst wenn Review APPROVED **und** QA grün:
 - Reihenfolge strikt; kein Schritt vor seinem Gate; Gates 1+2 erfordern
   **echte** User-Bestätigung — nie selbst annehmen.
 - Implementierung wird **nie** an einen Subagenten delegiert.
+- Die RED-Phase nie überspringen, und rote Tests nie durch Abschwächen grün
+  machen — grün wird ausschließlich durch Implementierung.
 - Subagenten-Grenzen respektieren: requirements/architect/reviewer schreiben
   keinen Code, qa schreibt nur Testcode.
 - Testfehlschläge nie beerdigen — fixen oder dem User vorlegen. Kein PR mit

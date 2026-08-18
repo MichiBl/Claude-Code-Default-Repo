@@ -140,9 +140,11 @@ Erkenntnisse als neue Punkte ergänzen.
 ## Feature-Workflow (Agent-Team)
 
 Nicht-triviale Features laufen über `/feature <beschreibung>` durch die
-Pipeline requirements-engineer → solution-architect → Implementierung
-(Haupt-Agent) → code-reviewer → qa-engineer → Draft-PR. Artefakte liegen
-unter `docs/features/<slug>/`.
+Pipeline requirements-engineer → solution-architect → qa-engineer (Tests
+zuerst, RED) → Implementierung (Haupt-Agent) → code-reviewer → qa-engineer
+(GREEN) → Draft-PR. Artefakte liegen unter `docs/features/<slug>/`. Die
+RED-Tests entstehen vor der Implementierung und müssen rot sein — grün
+werden sie ausschließlich durch die Implementierung, nie durch Abschwächen.
 
 Was kein Test abdecken kann, wird im `qa-plan.md` als nummerierter
 MC-Eintrag festgehalten (Tun / Erwartet / Warum manuell) und wandert als
