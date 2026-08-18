@@ -44,6 +44,10 @@ gitleaks-Check ist im Ruleset vorkonfiguriert; die projektspezifischen
 CI-Job-Namen kommen per `--check` dazu. Ohne `gh` geht es von Hand:
 Settings → Rules → Rulesets → **Import a ruleset** → die JSON-Datei wählen.
 
+Die Vorlage verlangt bewusst **0 Approvals** (Solo-Betrieb: der Autor merged
+selbst, sonst blockierte jeder PR). Für Team-Projekte vor dem Import
+`required_approving_review_count` in der JSON auf ≥ 1 setzen.
+
 Achtung: Auf privaten Repos im Free-Plan speichert GitHub Rulesets, setzt
 sie aber nicht durch — die CI-Gates auf jedem PR gelten unabhängig davon.
 
@@ -241,9 +245,15 @@ Begründungskommentar in die `.gitleaks.toml`-Allowlist. Die deny-Regeln
 davor decken `.env`-Varianten (auch in Unterordnern), Keys und `secrets/`
 ab — bewusst als Aufzählung statt `.env.*`, damit `.env.example` lesbar
 bleibt und Claude die Vorlage pflegen kann. Eine exotische Variante
-(z. B. `.env.custom`) muss man selbst ergänzen. Deny-Regeln und
+(z. B. `.env.custom`) muss man selbst ergänzen — in allen drei Listen
+(settings.json, `protect-secrets.sh`, `.gitignore`); der Selbsttest gleicht
+sie gegeneinander ab. Deny-Regeln und
 `protect-secrets.sh` fangen direkte Lese- bzw. Schreibzugriffe ab, sind aber
 Best-Effort — verlässlich blocken erst die Scan-Schichten darunter.
+
+Ehrlich benannt: Alle Schichten schützen die **Git-Historie**. Das Auslesen
+von Secrets zur Laufzeit über die Shell (`cat .env`, Upload per curl) deckt
+keine davon ab — dort ist die Grenze der Permission-Prompt von Claude Code.
 
 ## Pro Projekt noch zu tun
 
