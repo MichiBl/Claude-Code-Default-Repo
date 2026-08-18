@@ -231,7 +231,9 @@ Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
   (Label `maintenance`, genau eines, wird aktualisiert statt dupliziert).
   **Das Heben selbst bleibt Handarbeit**, samt Prüfung der Breaking Changes
   übersprungener Major-Versionen gegen die tatsächliche Nutzung.
-  Zuletzt geschehen: 2026-08-01.
+  Zuletzt geschehen: 2026-08-18 (setup-uv v9.0.0 -> v10.0.1; Breaking Change
+  in v10 — Cache-Abschaltung bei sensiblen Events unter `enable-cache: auto` —
+  betrifft die Vorlage nicht, sie setzt explizit `enable-cache: true`).
 - Die Agenten-Tests im Selbsttest prüfen nur Struktur-Marker, nicht Verhalten
   — LLM-Ausgaben sind deterministisch nicht prüfbar.
 - `setup.sh --diff` erkennt Kern-Verfall nur, wenn es jemand ausführt.
