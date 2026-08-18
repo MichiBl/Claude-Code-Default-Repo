@@ -74,10 +74,14 @@ case "$BASE" in
   .env.example) exit 0 ;;
 esac
 
-# Gleiche Abdeckung wie die deny-Regeln in settings.json.
+# Gleiche Abdeckung wie die deny-Regeln in settings.json. Der Selbsttest
+# gleicht die drei Aufzählungen (settings.json, dieser Hook, .gitignore)
+# gegeneinander ab — Ergänzungen gehören in alle drei.
 BLOCKED=""
 case "$BASE" in
-  .env|.env.*|*.pem|*.key|id_rsa*|id_ed25519*|credentials*.json) BLOCKED=1 ;;
+  .env|.env.*|*.pem|*.key|*.p12|*.pfx|id_rsa*|id_ed25519*) BLOCKED=1 ;;
+  credentials*.json|service-account*.json) BLOCKED=1 ;;
+  .npmrc|.pypirc|.netrc) BLOCKED=1 ;;
 esac
 case "$FILE" in
   secrets/*|*/secrets/*) BLOCKED=1 ;;
