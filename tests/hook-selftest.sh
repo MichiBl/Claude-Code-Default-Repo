@@ -588,6 +588,13 @@ marker .claude/skills/feature/SKILL.md "GATE 1"
 marker .claude/skills/feature/SKILL.md "GATE 2"
 marker .claude/skills/feature/SKILL.md "Selbst prüfen, bevor der PR aus dem Draft geht"
 marker templates/CLAUDE.md "eine Kernverantwortung"
+# Test-first-Ordnung der Pipeline: geht die RED-Phase verloren, schreibt die
+# QA wieder Tests NACH der Implementierung — Tests, die nie rot waren und
+# deshalb nicht belegen, dass sie das neue Verhalten prüfen.
+marker .claude/agents/qa-engineer.md "RED-Phase"
+marker .claude/agents/qa-engineer.md "GREEN-Phase"
+marker .claude/skills/feature/SKILL.md "RED-Phase"
+marker templates/CLAUDE.md "zuerst, RED"
 
 # --- Ergebnis --------------------------------------------------------------------
 echo

@@ -170,10 +170,13 @@ grün, exit 2 + stderr = Claude muss nachbessern).
 
 1. **requirements-engineer** -> `docs/features/<slug>/requirements.md` — **Gate: User-OK**
 2. **solution-architect** -> `architecture.md` — **Gate: User-OK**
-3. **Implementierung durch den Haupt-Agenten** (wird nie delegiert)
-4. **code-reviewer** -> `code-review.md` (APPROVED / NEEDS_CHANGES / BLOCKED)
-5. **qa-engineer** -> `qa-plan.md` + echte Tests, Gates grün
-6. **Draft-PR** mit verlinkten Artefakten
+3. **qa-engineer (RED)** -> Tests aus den Acceptance Criteria, die vor der
+   Implementierung rot sein müssen (ein schon grüner Test prüft das Feature nicht)
+4. **Implementierung durch den Haupt-Agenten** (wird nie delegiert) — macht
+   die RED-Tests grün
+5. **code-reviewer** -> `code-review.md` (APPROVED / NEEDS_CHANGES / BLOCKED)
+6. **qa-engineer (GREEN)** -> `qa-plan.md` finalisiert + Edge-Case-Tests, Gates grün
+7. **Draft-PR** mit verlinkten Artefakten
 
 ### Manuelle Prüfschritte (MC)
 
