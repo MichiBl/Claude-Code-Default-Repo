@@ -27,7 +27,13 @@ updates:
 
   # Projektspezifisch aktivieren (einkommentieren + anpassen):
   #
-  # - package-ecosystem: npm
+  # `npm` deckt auch pnpm und yarn ab — ein eigenes pnpm-Ökosystem gibt es
+  # nicht, Dependabot erkennt die pnpm-lock.yaml selbst. pnpm-Projekte setzen
+  # zusätzlich `minimumReleaseAge: 10080` (7 Tage, in Minuten; pnpm >= 10.16)
+  # in der pnpm-workspace.yaml: cooldown bremst nur Dependabot-PRs, nicht ein
+  # manuelles `pnpm add`/`pnpm update` — erst beides schließt die Lücke.
+  #
+  # - package-ecosystem: npm      # npm, pnpm und yarn
   #   directory: /
   #   schedule:
   #     interval: weekly
