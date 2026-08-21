@@ -159,6 +159,12 @@ d="$(mkfix clean)"
 check "keine geänderten Dateien -> Stop erlaubt" 0 \
   "$(hook_exit_in "$d" "$V" '{}')"
 
+# Gleichstand der Python-Pfade: `ruff format --check` lief nur im uv-Zweig —
+# pip-Projekte bekamen still kein Format-Gate. (Struktur-Check: der pip-Pfad
+# ist ohne installiertes pip-ruff nicht deterministisch ausführbar.)
+rc=0; [ "$(grep -c 'ruff format --check' "$V")" -eq 2 ] || rc=1
+check "ruff format --check in beiden Python-Pfaden (uv + pip)" 0 "$rc"
+
 d="$(mkfix override)"
 echo "x" > "$d/foo.js"
 mkdir -p "$d/.claude/hooks"
@@ -327,6 +333,9 @@ if command -v npm >/dev/null 2>&1; then
   hook_run_in "$d" "$SST"
   check "fehlgeschlagener Install blockiert die Session nicht" 0 "$RC"
   check_contains "Fehlschlag wird gemeldet" "fehlgeschlagen" "$ERR"
+  # Der Install-Output ging früher nach /dev/null — der Grund des Fehlschlags
+  # war damit unauffindbar. Jetzt muss die Meldung die Logdatei nennen.
+  check_contains "Fehlschlag nennt die Logdatei" "session-start-install.log" "$ERR"
 else
   skip "npm nicht installiert — session-start-Tests übersprungen."
 fi
@@ -393,6 +402,20 @@ rc=0
 check "Python ohne uv.lock -> nur pip-Job in ci.yml" 0 "$rc"
 check_ci_vollstaendig "pip-Vorlage vollständig übernommen" \
   "$ROOT/.github/workflows/ci-python-pip.yml.example" "$d/.github/workflows/ci.yml"
+
+# Dependabot-Hinweis: die npm-/pip-Blöcke der Vorlage sind auskommentiert —
+# bei erkanntem Stack muss setup.sh darauf hinweisen (und schweigen, sobald
+# das Projekt den Block aktiviert hat).
+d="$TMP/ci-dbot"; mkdir -p "$d"; printf '{}' > "$d/package.json"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+check_contains "Node-Stack -> Hinweis auf auskommentierten Dependabot-Block" "dependabot.yml einkommentieren" "$out"
+printf 'version: 2\nupdates:\n  - package-ecosystem: npm\n' > "$d/.github/dependabot.yml"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+check_absent "aktivierter npm-Block -> kein Hinweis mehr" "dependabot.yml einkommentieren" "$out"
+
+d="$TMP/ci-dbot-py"; mkdir -p "$d"; touch "$d/pyproject.toml" "$d/uv.lock"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+check_contains "Python-Stack -> Hinweis auf auskommentierten Dependabot-Block" "dependabot.yml einkommentieren" "$out"
 
 d="$TMP/ci-exist"; mkdir -p "$d/.github/workflows"
 echo "# eigene CI" > "$d/.github/workflows/ci.yml"
@@ -719,6 +742,10 @@ marker() { # marker <datei> <text>
   fi
 }
 marker .claude/agents/code-reviewer.md "Verdict"
+# Diff-Basis ist der erkannte Default-Branch, kein hartes `main` — sonst
+# reviewen die Agenten in master-/develop-Repos den falschen Diff.
+marker .claude/agents/code-reviewer.md "symbolic-ref"
+marker .claude/agents/qa-engineer.md "symbolic-ref"
 marker .claude/agents/code-reviewer.md "Verantwortlichkeits-Schnitt (SRP)"
 marker .claude/agents/code-reviewer.md "Harte Grenzen"
 marker .claude/agents/code-reviewer.md "Reuse Check"

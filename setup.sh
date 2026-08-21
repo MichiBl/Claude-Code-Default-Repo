@@ -362,6 +362,19 @@ activate_ci() { # activate_ci <example-datei>
   } > "$dest"
 }
 
+# Dependabot deckt ohne Zutun nur github-actions ab; die npm-/pip-Blöcke der
+# Vorlage sind auskommentiert. Nur hinweisen, nicht hineineditieren: die
+# Blöcke tragen Kommentare und Optionen, die das Projekt bewusst wählen soll,
+# und dependabot.yml ist eine PROJEKT-Datei.
+hint_dependabot() { # hint_dependabot <regex> <anzeigename>
+  local dbot="$TARGET/.github/dependabot.yml"
+  [ -f "$dbot" ] || return 0
+  if ! grep -qE "^[[:space:]]*- package-ecosystem: ($1)" "$dbot"; then
+    echo "  ℹ  Dependabot hebt bisher nur die GitHub Actions — den $2-Block in"
+    echo "     .github/dependabot.yml einkommentieren, damit auch die Projekt-Dependencies gehoben werden."
+  fi
+}
+
 echo
 CI_DEST="$TARGET/.github/workflows/ci.yml"
 if [ -f "$TARGET/package.json" ]; then
@@ -374,6 +387,7 @@ if [ -f "$TARGET/package.json" ]; then
   if ! grep -q '"lint"' "$TARGET/package.json"; then
     echo "  ⚠  Kein \"lint\"-Script in package.json — verify.sh/CI/QA linten sonst NICHT (z. B. ESLint einrichten)."
   fi
+  hint_dependabot "npm" "npm"
 elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   if [ -e "$CI_DEST" ]; then
     echo "  ℹ  Python-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
@@ -387,6 +401,7 @@ elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   if ! grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
     echo "  ⚠  ruff nicht in den Dependencies — verify.sh/CI/QA linten sonst NICHT (ruff als Dev-Dependency ergänzen)."
   fi
+  hint_dependabot "pip|uv" "pip-/uv"
 else
   echo "  ℹ  Stack nicht erkannt -> passende ci-*.yml.example nach ci.yml umbenennen und anpassen."
   echo "     Anderer Stack (Go, Rust, …)? Eigenes Gate als .claude/hooks/verify-project.sh hinterlegen."

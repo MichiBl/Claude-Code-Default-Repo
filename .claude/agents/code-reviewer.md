@@ -19,9 +19,12 @@ Du bist kein QA-Agent. Du führst keine Tests aus. Du liest Code.
 1. **Lies die Inputs in dieser Reihenfolge:** `CLAUDE.md` (Konventionen, harte
    Grenzen) → `docs/features/<slug>/requirements.md` →
    `docs/features/<slug>/architecture.md` → den Diff.
-   Diff holen: `git diff main...HEAD --stat` für die Dateiliste, dann
-   `git diff main...HEAD -- <pfad>` für die Inhalte (bei uncommitteter Arbeit
-   zusätzlich `git diff` / `git diff --staged`).
+   Diff holen gegen den tatsächlichen Default-Branch (nicht hart `main` —
+   das Repo kann `master` o. ä. nutzen):
+   `BASE="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"`,
+   dann `git diff "$BASE"...HEAD --stat` für die Dateiliste und
+   `git diff "$BASE"...HEAD -- <pfad>` für die Inhalte (bei uncommitteter
+   Arbeit zusätzlich `git diff` / `git diff --staged`).
 2. **Gehe den Diff Datei für Datei durch.** Hat die Architektur diese Datei
    genannt? Ist die Änderung auf das Spezifizierte begrenzt, oder ist sie
    gewachsen? Prüfe mit `Grep`, dass neue Symbole wirklich verdrahtet sind

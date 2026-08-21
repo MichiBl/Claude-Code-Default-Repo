@@ -5,6 +5,17 @@ Wiederverwendbares Standard-Setup für neue Projekte — destilliert aus
 [Stockwise-News-Agent](https://github.com/MichiBl/Stockwise-News-Agent) und
 [local-mail-ai](https://github.com/MichiBl/local-mail-ai-).
 
+## Voraussetzungen
+
+- macOS oder Linux (Windows über WSL), mit `bash` und `git` — mehr braucht
+  der Werkzeugkasten selbst nicht (Ziel-Kompatibilität: Bash 3.2, die
+  macOS-Standard-Bash).
+- `gitleaks` für die lokalen Secret-Scans (`brew install gitleaks`); fehlt
+  es, degradieren die Hooks mit Hinweis — die CI scannt trotzdem.
+- Optional: `gh` (nur für `setup-github.sh`) sowie `shellcheck` und
+  `python3` (nur zum Entwickeln am Template selbst; die Hooks haben
+  Fallbacks ohne Python).
+
 ## Verwendung
 
 ```bash
@@ -164,6 +175,7 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
 .github/
 ├── dependabot.yml               # hält die SHA-gepinnten Actions aktuell (wöchentlich, gebündelt)
+├── pull_request_template.md     # PR-Gerüst mit dem MC-Checkbox-Block (Haken setzt nur der Mensch)
 ├── rulesets/
 │   └── main-schutz.json         # Branch-Ruleset-Vorlage (Import via setup-github.sh oder UI)
 └── workflows/
