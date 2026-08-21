@@ -88,6 +88,14 @@ liegt im Zielprojekt `.github/workflows/core-drift.yml.example`: einmal nach
 fährt `setup.sh --diff .` und wird bei Kern-Verfall rot. Rot heißt dort nicht
 „kaputt", sondern „Kern veraltet" — beheben mit `./setup.sh --update .`.
 
+**Auch die Gegenrichtung wird geprüft.** `--diff` und `--update` melden
+Dateien in den Kern-Verzeichnissen des Ziels, die das Template nicht kennt —
+etwa einen Hook, den das Template inzwischen gelöscht hat, der im Projekt
+aber noch in `settings.json` verdrahtet ist und dort alten Code ausführt.
+Gelöscht wird nichts (es kann ein bewusst projekteigener Hook/Agent sein),
+und Verwaiste zählen nicht als Verfall — der `--diff`-Exit-Code bleibt
+davon unberührt.
+
 **Kopiert heißt nicht aktiv.** Zwei Hook-Sorten brauchen eine Verdrahtung, die
 in einer PROJEKT-Datei bzw. in der Git-Config steht — beide Modi melden das:
 

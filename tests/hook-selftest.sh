@@ -479,6 +479,26 @@ check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
 bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
 check "nach --update ist der Kern wieder deckungsgleich" 0 "$rc"
 
+# Verwaiste Kern-Dateien: die Gegenrichtung des Vergleichs. Eine Datei, die
+# nur im Ziel liegt, wird gemeldet (sie könnte verdrahteter Alt-Code sein),
+# zählt aber nicht als Verfall und wird nie gelöscht.
+d="$TMP/sync-verwaist"; mkdir -p "$d"
+run_setup "$d"
+echo "alt" > "$d/.claude/hooks/altlast.sh"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "verwaiste Kern-Datei ändert den --diff-Exit nicht" 0 "$rc"
+check_contains "--diff meldet die verwaiste Datei" "altlast.sh" "$out"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$d/.claude/hooks/verify-project.sh"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"
+check_absent "verify-project.sh (projekteigenes Gate) gilt nicht als verwaist" "verify-project.sh" "$out"
+# ("Template nicht kennt" statt Dateiname: altlast.sh taucht im
+# --update-Output auch in der Unverdrahtet-Warnung auf — die Assertion muss
+# den Verwaisten-Report treffen, nicht die.)
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
+check_contains "--update meldet die verwaiste Datei ebenfalls" "Template nicht kennt" "$out"
+rc=0; [ -e "$d/.claude/hooks/altlast.sh" ] || rc=1
+check "verwaiste Datei wird nicht gelöscht" 0 "$rc"
+
 # secret-scan.yml ist der stack-unabhängige gitleaks-Backstop und deshalb die
 # eine KERN-Datei unter .github/: eine verbogene Kopie ist Verfall und wird
 # von --update geheilt. ci.yml direkt daneben bleibt PROJEKT — die Gegenprobe

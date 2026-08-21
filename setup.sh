@@ -109,6 +109,39 @@ warn_unwired_hooks() {
   return 0
 }
 
+# Verwaiste Kern-Dateien: --diff/--update vergleichen nur in Richtung
+# Template -> Ziel. Eine Datei, die das Template GELÖSCHT hat, bleibt im Ziel
+# unbemerkt liegen — und eine noch in settings.json verdrahtete Hook-Datei
+# führt dort alten Code aus, den niemand mehr pflegt. Deshalb die Gegenrichtung:
+# melden, was in den Kern-Verzeichnissen des Ziels liegt, ohne im Template zu
+# existieren. NIE löschen — es kann auch ein bewusst projekteigener
+# Hook/Agent sein (settings.json ist PROJEKT und darf eigene verdrahten).
+report_orphans() {
+  local dir rel found=""
+  for dir in .claude/agents .claude/skills .claude/hooks .githooks; do
+    [ -d "$TARGET/$dir" ] || continue
+    while IFS= read -r -d '' f; do
+      rel="${f#"$TARGET/"}"
+      # Das dokumentierte projekteigene Gate — nie als verwaist melden, auch
+      # falls das Template sein eigenes verify-project.sh einmal aufgibt.
+      [ "$rel" = ".claude/hooks/verify-project.sh" ] && continue
+      if [ ! -e "$SRC/$rel" ]; then
+        found="${found}     ${rel}
+"
+      fi
+    done < <(find "$TARGET/$dir" -type f ! -name '.DS_Store' -print0)
+  done
+  [ -z "$found" ] && return 0
+  echo
+  echo "⚠  Dateien in Kern-Verzeichnissen, die das Template nicht kennt"
+  echo "   (verwaist — oder bewusst projekteigen):"
+  printf '%s' "$found"
+  echo "   Es wird nichts gelöscht. Aber prüfen: eine verwaiste Hook-Datei, die"
+  echo "   .claude/settings.json noch aufruft, führt alten Code aus, den das"
+  echo "   Template nicht mehr pflegt. Projekteigene Dateien sind in Ordnung."
+  return 0
+}
+
 # Zweiter Fall derselben Sorte: .githooks/pre-commit ist KERN und wird kopiert,
 # aber Git ruft ihn nur auf, wenn core.hooksPath darauf zeigt. Ohne das liegt die
 # Secret-Schranke da und tut nichts — Schicht 2 der Defense-in-Depth fehlt still.
@@ -258,6 +291,9 @@ if [ "$MODE" = "diff" ]; then
   echo
   echo "Ergebnis: $identical identisch, $differs abweichend, $missing fehlend."
   git_hooks_path 1 || hooks_inert=1
+  # Verwaiste zählen bewusst NICHT als Verfall (Exit bleibt wie bisher):
+  # sie können projekteigen sein, und ein roter Drift-Check dafür wäre Rauschen.
+  report_orphans
   if [ "$core_drift" -gt 0 ]; then
     echo
     echo "⚠  $core_drift Kern-Datei(en) weichen ab oder fehlen — der Werkzeugkasten"
@@ -279,6 +315,7 @@ if [ "$MODE" = "update" ]; then
   echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
   git_hooks_path || true
   warn_unwired_hooks
+  report_orphans
   if [ "$updated" -gt 0 ]; then
     echo
     echo "Änderungen vor dem Commit durchsehen: git -C $TARGET diff"
