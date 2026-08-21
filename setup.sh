@@ -68,11 +68,18 @@ hooks_inert=0  # .githooks/pre-commit liegt da, ist aber nicht aktiviert
 
 # is_core <dest_rel> -> 0 = Werkzeug-Kern (muss überall identisch sein).
 # Bewusst NICHT im Kern: .claude/settings.json (Projekte ergänzen eigene
-# Permissions/Env), .github/** (ci.yml und dependabot.yml hängen am Stack),
+# Permissions/Env), ci.yml und dependabot.yml (hängen am Stack),
 # .gitleaks.toml (projekteigene Allowlist).
+# secret-scan.yml ist dagegen KERN, obwohl es unter .github/ liegt: der
+# gitleaks-Backstop ist stack-unabhängig, und als PROJEKT-Datei würde
+# ausgerechnet die wichtigste Schutzschicht still veralten — --update hätte
+# sie nie angefasst. core-drift.yml.example bleibt PROJEKT: das Ziel aktiviert
+# es durch UMBENENNEN nach core-drift.yml, ein Inhaltsvergleich unter dem
+# Vorlagen-Namen liefe dort dauerhaft ins Leere.
 is_core() {
   case "$1" in
     .claude/agents/*|.claude/skills/*|.claude/hooks/*|.githooks/*) return 0 ;;
+    .github/workflows/secret-scan.yml) return 0 ;;
     *) return 1 ;;
   esac
 }

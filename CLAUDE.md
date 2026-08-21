@@ -65,8 +65,13 @@ zu — `is_core()` in `setup.sh` ist die maßgebliche Definition.
 
 | Sorte | Was | Regel |
 |---|---|---|
-| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/` | muss in allen Projekten identisch sein; `--update` überschreibt |
-| **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `.github/**`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf abweichen; wird nie überschrieben |
+| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/`, `.github/workflows/secret-scan.yml` | muss in allen Projekten identisch sein; `--update` überschreibt |
+| **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, restliches `.github/**`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf abweichen; wird nie überschrieben |
+
+`secret-scan.yml` ist KERN, obwohl es unter `.github/` liegt: der
+gitleaks-Backstop ist stack-unabhängig — als PROJEKT-Datei würde die
+wichtigste Schutzschicht still veralten. `core-drift.yml.example` bleibt
+PROJEKT, weil Zielprojekte es durch Umbenennen aktivieren.
 
 Dazu eine dritte, ungeschriebene Sorte: **template-eigene Dateien**, die in
 keinem Zielprojekt etwas zu suchen haben. Aktuell

@@ -62,8 +62,14 @@ Dateien zerfallen dafür in zwei Sorten:
 
 | Sorte | Was | Regel |
 |---|---|---|
-| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/` | muss überall identisch sein — Abweichung ist Verfall |
+| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/`, `.github/workflows/secret-scan.yml` | muss überall identisch sein — Abweichung ist Verfall |
 | **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `ci.yml`, `dependabot.yml`, `rulesets/*.json`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf und soll abweichen — wird nie überschrieben |
+
+`secret-scan.yml` ist die eine Ausnahme unter `.github/`: der
+gitleaks-Backstop ist stack-unabhängig und die wichtigste Schutzschicht —
+als PROJEKT-Datei würde ausgerechnet sie still veralten, weil `--update`
+sie nie anfassen dürfte. Alles Stack-Abhängige (`ci.yml`, `dependabot.yml`)
+bleibt PROJEKT.
 
 `--diff` zeigt pro Datei `fehlt` / `identisch` / `weicht ab`, den Kurz-Diff
 aber nur für KERN-Dateien (bei PROJEKT-Dateien wäre er reines Rauschen). Der

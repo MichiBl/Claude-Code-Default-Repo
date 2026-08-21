@@ -479,6 +479,24 @@ check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
 bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
 check "nach --update ist der Kern wieder deckungsgleich" 0 "$rc"
 
+# secret-scan.yml ist der stack-unabhängige gitleaks-Backstop und deshalb die
+# eine KERN-Datei unter .github/: eine verbogene Kopie ist Verfall und wird
+# von --update geheilt. ci.yml direkt daneben bleibt PROJEKT — die Gegenprobe
+# stellt sicher, dass die Hebung nicht versehentlich das ganze Verzeichnis
+# erfasst hat.
+d="$TMP/sync-secretscan"; mkdir -p "$d"
+printf '{}' > "$d/package.json"
+run_setup "$d"
+echo "# lokal verbogen" >> "$d/.github/workflows/secret-scan.yml"
+echo "# eigene ci" > "$d/.github/workflows/ci.yml"
+bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
+check "verbogene secret-scan.yml -> --diff meldet Kern-Verfall" 1 "$rc"
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1
+rc=0; cmp -s "$ROOT/.github/workflows/secret-scan.yml" "$d/.github/workflows/secret-scan.yml" || rc=1
+check "--update stellt secret-scan.yml wieder her" 0 "$rc"
+rc=0; grep -q "eigene ci" "$d/.github/workflows/ci.yml" || rc=1
+check "--update lässt ci.yml (PROJEKT) unangetastet" 0 "$rc"
+
 # Ein neu kopierter Hook, den settings.json nicht aufruft, tut nichts — das
 # Projekt sieht aber geschützt aus. --update muss das melden.
 d="$TMP/sync-hook-unverdrahtet"; mkdir -p "$d"
