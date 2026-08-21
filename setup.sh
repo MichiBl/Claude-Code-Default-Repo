@@ -6,6 +6,7 @@
 #   ./setup.sh /pfad/zum/projekt           # Dateien kopieren (nie überschreiben)
 #   ./setup.sh --diff /pfad/zum/projekt    # nur vergleichen: fehlt/identisch/weicht ab
 #   ./setup.sh --update /pfad/zum/projekt  # NUR den Werkzeug-Kern überschreiben
+#   ./setup.sh --doctor /pfad/zum/projekt  # Schutzschichten prüfen: ok/fehlt je Schicht
 #
 # Zwei Sorten Dateien, und der Unterschied ist der Kern des Skripts:
 #
@@ -48,11 +49,12 @@ MODE="copy"
 case "${1:-}" in
   --diff)   MODE="diff";   shift ;;
   --update) MODE="update"; shift ;;
+  --doctor) MODE="doctor"; shift ;;
 esac
 TARGET="${1:-}"
 
 if [ -z "$TARGET" ] || [ ! -d "$TARGET" ]; then
-  echo "Verwendung: ./setup.sh [--diff|--update] /pfad/zum/projekt  (Verzeichnis muss existieren)" >&2
+  echo "Verwendung: ./setup.sh [--diff|--update|--doctor] /pfad/zum/projekt  (Verzeichnis muss existieren)" >&2
   exit 1
 fi
 TARGET="$(cd "$TARGET" && pwd)"
@@ -88,17 +90,20 @@ is_core() {
 # PROJEKT-Datei, die --update bewusst nicht anfasst. Ein neu dazugekommener Hook
 # liegt sonst still im Verzeichnis und wird nie aufgerufen: der gefährlichste
 # Fehlmodus, weil das Projekt geschützt AUSSIEHT. Deshalb hier explizit melden.
-warn_unwired_hooks() {
-  local settings="$TARGET/.claude/settings.json" hook name unwired=""
+list_unwired_hooks() { # Hook-Namen, die settings.json nicht aufruft (einer je Zeile)
+  local settings="$TARGET/.claude/settings.json" hook name
   [ -f "$settings" ] || return 0
   for hook in "$TARGET/.claude/hooks/"*.sh; do
     [ -e "$hook" ] || continue
     name="$(basename "$hook")"
     [ "$name" = "verify-project.sh" ] && continue   # projekteigenes Gate, wird von verify.sh aufgerufen
-    if ! grep -qF "$name" "$settings"; then
-      unwired="${unwired}${name} "
-    fi
+    grep -qF "$name" "$settings" || echo "$name"
   done
+}
+
+warn_unwired_hooks() {
+  local unwired
+  unwired="$(list_unwired_hooks | tr '\n' ' ')"
   [ -z "$unwired" ] && return 0
   echo
   echo "⚠  Nicht verdrahtete Hooks: $unwired"
@@ -270,6 +275,105 @@ process_tree() {
     ! -name 'hook-selftest.yml' ! -name 'verify-project.sh' \
     ! -name 'template-pin-check.yml' -print0)
 }
+
+# --- Doctor: Schutzschichten prüfen, nichts verändern ---------------------------
+# Ein Sammelbefehl für die Frage "ist dieses Projekt wirklich geschützt?".
+# Jede Prüfung entspricht einer Schicht, die einzeln schon irgendwo gemeldet
+# wird (--diff, --update, setup-Warnungen) oder bisher nirgends auffiel
+# (Platzhalter, fehlendes Lint-Gate). Exit 1, sobald etwas fehlt — damit
+# taugt der Modus als Prüfung, nicht nur als Bericht.
+if [ "$MODE" = "doctor" ]; then
+  echo "Claude Code Default Setup — Doctor: $TARGET"
+  echo
+  DOC_FAIL=0
+  doc_ok()   { echo "  ✓ ok:    $1"; }
+  doc_fail() { # doc_fail <befund> <behebung>...
+    echo "  ✗ fehlt: $1"; shift
+    local fix; for fix in "$@"; do echo "           -> $fix"; done
+    DOC_FAIL=$((DOC_FAIL + 1))
+  }
+
+  # 1. gitleaks — ohne das Binary tragen pre-commit/pre-push/secret-scan.sh nicht.
+  if command -v gitleaks >/dev/null 2>&1; then
+    doc_ok "gitleaks installiert"
+  else
+    doc_fail "gitleaks nicht installiert — lokale Secret-Scans laufen NICHT (CI bleibt Backstop)" \
+      "brew install gitleaks   # sonst: https://github.com/gitleaks/gitleaks#installing"
+  fi
+
+  # 2. core.hooksPath — ohne Verdrahtung liegen die .githooks nur herum.
+  if ! git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    doc_fail "kein Git-Repo — .githooks/pre-commit und pre-push laufen nie" \
+      "git -C \"$TARGET\" init && git -C \"$TARGET\" config core.hooksPath .githooks"
+  elif [ "$(git -C "$TARGET" config --get core.hooksPath 2>/dev/null || true)" = ".githooks" ]; then
+    doc_ok "core.hooksPath zeigt auf .githooks"
+  else
+    doc_fail "core.hooksPath zeigt nicht auf .githooks — pre-commit/pre-push laufen nie" \
+      "git -C \"$TARGET\" config core.hooksPath .githooks"
+  fi
+
+  # 3. Hook-Verdrahtung in settings.json — kopiert heißt nicht aktiv.
+  if [ ! -f "$TARGET/.claude/settings.json" ]; then
+    doc_fail ".claude/settings.json fehlt — kein Hook wird aufgerufen" \
+      "./setup.sh \"$TARGET\"   # kopiert die Vorlage"
+  else
+    UNWIRED="$(list_unwired_hooks | tr '\n' ' ')"
+    if [ -z "$UNWIRED" ]; then
+      doc_ok "alle Hooks in .claude/hooks/ sind in settings.json verdrahtet"
+    else
+      doc_fail "nicht verdrahtete Hooks (liegen da, tun nichts): $UNWIRED" \
+        "Verdrahtung in .claude/settings.json ergänzen (Vorlage: $SRC/.claude/settings.json)"
+    fi
+  fi
+
+  # 4. CLAUDE.md-Platzhalter — die Agenten lesen daraus; unbefüllt arbeiten
+  # sie mit "<test>" statt echten Befehlen. Geprüft werden die Marker der
+  # Vorlage (nicht <slug> — der ist Struktur, kein Platzhalter).
+  if [ ! -f "$TARGET/CLAUDE.md" ]; then
+    doc_fail "CLAUDE.md fehlt" "./setup.sh \"$TARGET\"   # kopiert die Vorlage, dann ausfüllen"
+  elif grep -qE '<(install|dev|build|test|lint|typecheck|beschreibung|PLATZHALTER|VAR_NAME)>' "$TARGET/CLAUDE.md"; then
+    doc_fail "CLAUDE.md enthält unbefüllte Platzhalter" \
+      "in Claude Code: \"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus.\""
+  else
+    doc_ok "CLAUDE.md ohne unbefüllte Platzhalter"
+  fi
+
+  # 5. ci.yml — ohne CI gibt es kein nicht-überspringbares Gate.
+  if [ -f "$TARGET/.github/workflows/ci.yml" ]; then
+    doc_ok ".github/workflows/ci.yml existiert"
+  else
+    doc_fail ".github/workflows/ci.yml fehlt — kein CI-Gate" \
+      "passende ci-*.yml.example nach ci.yml umbenennen und anpassen (oder ./setup.sh \"$TARGET\")"
+  fi
+
+  # 6. Lint-Gate — ohne Linter laufen verify.sh, CI und QA still leer.
+  if [ -x "$TARGET/.claude/hooks/verify-project.sh" ]; then
+    doc_ok "Lint-Gate vorhanden (projekteigenes verify-project.sh)"
+  elif [ -f "$TARGET/package.json" ] && grep -q '"lint"' "$TARGET/package.json"; then
+    doc_ok "Lint-Gate vorhanden (lint-Script in package.json)"
+  elif grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
+    doc_ok "Lint-Gate vorhanden (ruff in den Dependencies)"
+  else
+    doc_fail "kein Lint-Gate erkennbar — verify.sh/CI/QA linten NICHT" \
+      "Node: \"lint\"-Script in package.json; Python: ruff als Dev-Dependency; andere Stacks: .claude/hooks/verify-project.sh"
+  fi
+
+  # 7. Kern deckungsgleich — dieselbe Prüfung wie --diff, nur als eine Zeile.
+  if "$0" --diff "$TARGET" >/dev/null 2>&1; then
+    doc_ok "Werkzeug-Kern deckungsgleich mit dem Template"
+  else
+    doc_fail "Werkzeug-Kern weicht ab oder ist inaktiv (Details: ./setup.sh --diff \"$TARGET\")" \
+      "./setup.sh --update \"$TARGET\""
+  fi
+
+  echo
+  if [ "$DOC_FAIL" -gt 0 ]; then
+    echo "Ergebnis: $DOC_FAIL Schicht(en) fehlen oder sind inaktiv (Behebung siehe oben)."
+    exit 1
+  fi
+  echo "Ergebnis: alle Schichten aktiv."
+  exit 0
+fi
 
 case "$MODE" in
   diff)   echo "Claude Code Default Setup — Vergleich mit $TARGET" ;;

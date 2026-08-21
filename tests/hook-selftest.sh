@@ -360,6 +360,14 @@ hook_run_in "$d" "$SST"
 rc=0; [ -z "$(git -C "$d" config --get core.hooksPath || true)" ] || rc=1
 check "ohne .githooks/pre-commit wird nichts gesetzt" 0 "$rc"
 
+# Ohne gitleaks muss der Session-Start warnen (nie blockieren) — sonst fällt
+# das Fehlen der lokalen Secret-Schichten erst beim ersten Commit auf.
+# (NOPY_BIN enthält kein gitleaks, egal was auf dem Host installiert ist.)
+d="$(mkfix ss-ohne-gitleaks)"
+hook_run_nopy "$d" "$SST" ""
+check "ohne gitleaks: session-start blockiert nicht" 0 "$RC"
+check_contains "ohne gitleaks: Warnung auf stderr" "gitleaks nicht installiert" "$ERR"
+
 # --- setup.sh: CI-Aktivierung ------------------------------------------------------
 echo "== setup.sh: CI-Aktivierung =="
 run_setup() { # run_setup <targetdir> — setup.sh still ausführen
@@ -576,6 +584,50 @@ out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
 rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
+
+# --- setup.sh: --doctor --------------------------------------------------------------
+# Der Doctor beantwortet "ist dieses Projekt wirklich geschützt?" in einem
+# Lauf. Exit 1, sobald eine Schicht fehlt; jede Meldung trägt den
+# Behebungsbefehl. Er verändert nichts.
+echo "== setup.sh: --doctor =="
+
+# Frisch kopiertes Ziel ohne Git-Repo, mit Platzhalter-CLAUDE.md, ohne
+# Lint-Gate: mehrere Befunde auf einmal.
+d="$TMP/doc-kaputt"; mkdir -p "$d"
+run_setup "$d"
+out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"; rc=$?
+check "--doctor meldet fehlende Schichten mit Exit 1" 1 "$rc"
+check_contains "--doctor findet die Platzhalter-CLAUDE.md" "Platzhalter" "$out"
+check_contains "--doctor findet das fehlende Git-Repo" "Git-Repo" "$out"
+check_contains "--doctor findet das fehlende Lint-Gate" "Lint-Gate" "$out"
+check_contains "--doctor nennt Behebungsbefehle" "->" "$out"
+
+# Entdrahteter Hook: liegt in .claude/hooks/, wird von settings.json aber
+# nicht aufgerufen — der gefährlichste Zustand, der Doctor muss ihn nennen.
+python3 - "$d/.claude/settings.json" <<'PY' 2>/dev/null || sed -i.bak 's/protect-secrets\.sh/entfernt.sh/' "$d/.claude/settings.json"
+import json, sys
+p = sys.argv[1]
+s = json.load(open(p))
+s["hooks"]["PreToolUse"] = [h for h in s["hooks"]["PreToolUse"]
+                            if "protect-secrets.sh" not in json.dumps(h)]
+json.dump(s, open(p, "w"), indent=2)
+PY
+out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"
+check_contains "--doctor findet den entdrahteten Hook" "protect-secrets.sh" "$out"
+
+# Gesundes Projekt: alle sieben Schichten aktiv -> Exit 0. (Braucht gitleaks
+# auf dem Host — Schicht 1 ist sonst zu Recht rot.)
+if command -v gitleaks >/dev/null 2>&1; then
+  d="$(mkfix doc-gesund)"
+  printf '{"scripts":{"lint":"exit 0"}}' > "$d/package.json"
+  run_setup "$d"
+  echo "Projektkontext, vollständig ausgefüllt." > "$d/CLAUDE.md"
+  out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"; rc=$?
+  check "--doctor auf gesundem Projekt -> Exit 0" 0 "$rc"
+  check_contains "--doctor meldet alle Schichten aktiv" "alle Schichten aktiv" "$out"
+else
+  skip "gitleaks nicht installiert — Doctor-Gesund-Test übersprungen (CI führt ihn aus)."
+fi
 
 # --- setup-github.sh: --dry-run ------------------------------------------------------
 # Das Skript schaltet serverseitig (Dependabot, Secret scanning, Push protection,

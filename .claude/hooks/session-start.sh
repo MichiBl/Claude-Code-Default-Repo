@@ -47,6 +47,14 @@ if [ -f uv.lock ] && command -v uv >/dev/null 2>&1; then
   fi
 fi
 
+# --- gitleaks-Hinweis -------------------------------------------------------------
+# Die lokalen Secret-Schichten (pre-commit, pre-push, secret-scan.sh) tragen nur
+# mit installiertem gitleaks. Fehlt es, soll das beim Session-Start sichtbar
+# sein — nicht erst beim ersten Commit. Nur Warnung, nie blockierend.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "session-start: gitleaks nicht installiert — lokale Secret-Scans (pre-commit/pre-push/secret-scan.sh) laufen NICHT; CI bleibt der Backstop (brew install gitleaks)." >&2
+fi
+
 # --- Git-Hooks verdrahten ---------------------------------------------------------
 # core.hooksPath lebt in .git/config und wird NICHT mitversioniert: nach jedem
 # frischen Klon liegt .githooks/pre-commit (gitleaks) im Repo, ohne dass Git ihn

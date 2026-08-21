@@ -26,7 +26,7 @@ sind Anweisungen (Markdown) und Shellskripte.
 ## Projektstruktur
 
 ```
-setup.sh                    # kopiert/vergleicht/aktualisiert den Werkzeugkasten
+setup.sh                    # kopiert/vergleicht/aktualisiert/prüft (--doctor) den Werkzeugkasten
 setup-github.sh             # serverseitige GitHub-Schalter (Rulesets, Push Protection)
 CLAUDE.md                   # DIESE Datei — Kontext des Template-Repos
 templates/CLAUDE.md         # die auszuliefernde Vorlage mit <PLATZHALTERN>

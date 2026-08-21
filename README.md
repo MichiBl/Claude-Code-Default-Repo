@@ -130,6 +130,27 @@ Warum die Trennung: Ohne sie meldet `--diff` in jedem Projekt Abweichungen in
 untergeht. Genau so laufen Kopien über Monate auseinander, ohne dass es
 jemandem auffällt.
 
+### Gesundheitscheck: --doctor
+
+```bash
+./Claude-Code-Default-Repo/setup.sh --doctor /pfad/zum/projekt
+```
+
+Beantwortet die Frage „ist dieses Projekt wirklich geschützt?" in einem
+Lauf — je Schicht `ok`/`fehlt`, mit konkretem Behebungsbefehl:
+
+1. gitleaks installiert
+2. `core.hooksPath` zeigt auf `.githooks`
+3. jeder Hook in `.claude/hooks/` ist in `settings.json` verdrahtet
+4. `CLAUDE.md` ohne unbefüllte Platzhalter
+5. `.github/workflows/ci.yml` existiert
+6. Lint-Gate vorhanden (`lint`-Script bzw. ruff bzw. `verify-project.sh`)
+7. Werkzeug-Kern deckungsgleich (nutzt die `--diff`-Prüfung)
+
+Exit 1, sobald etwas fehlt — damit taugt der Modus auch als Skript-Check.
+Verändert nichts am Projekt. Zusätzlich warnt `session-start.sh` bei jedem
+Session-Start, wenn gitleaks fehlt (nie blockierend).
+
 ## Was drin ist
 
 Der Baum unten zeigt alles, was `setup.sh` unverändert an dieselben Pfade
