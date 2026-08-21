@@ -108,7 +108,13 @@ Branch liegt. Ergebnis: `docs/features/<slug>/code-review.md` mit Verdict.
 
 - **APPROVED** -> weiter zu Schritt 6.
 - **NEEDS_CHANGES** -> arbeite die Required Fixes selbst ein, dann
-  `code-reviewer` erneut, bis APPROVED. Nie mit offenen Fixes weitergehen.
+  `code-reviewer` erneut. Nie mit offenen Fixes weitergehen.
+  **Maximal 3 Review-Zyklen** (NEEDS_CHANGES -> Fix -> Re-Review). Ist das
+  dritte Re-Review nicht APPROVED, stoppe und eskaliere per
+  `AskUserQuestion`: nochmal fixen, zurück zur Architektur (Schritt 2), oder
+  abbrechen? Drei erfolglose Runden sind fast nie „eine Runde hat gefehlt",
+  sondern ein Zeichen, dass das Problem nicht auf Code-Ebene liegt —
+  weiterkreisen verbrennt Kontext, ohne zu konvergieren.
 - **BLOCKED** -> stoppe, lege es dem User vor (`AskUserQuestion`): zurück zu
   Schritt 1 (Requirements) oder Schritt 2 (Architektur)?
 
@@ -168,6 +174,8 @@ Erst wenn Review APPROVED **und** QA grün:
   roten Tests.
 - Review-Schritt nie überspringen: Tests prüfen *Verhalten*, das Review prüft
   *Passung* — beides ist Pflicht vor dem PR.
+- Maximal 3 Review-Zyklen, dann eskalieren (`AskUserQuestion`) — nie
+  unbegrenzt zwischen Fix und Re-Review kreisen.
 - PR ist immer **Draft**. Er verlässt den Draft-Status erst, wenn alle
   MC-Checkboxen abgehakt sind — das kann nur der User, nie du. Hake sie
   niemals selbst ab und setze den PR nie selbst auf "Ready for Review".

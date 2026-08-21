@@ -5,6 +5,17 @@ Wiederverwendbares Standard-Setup für neue Projekte — destilliert aus
 [Stockwise-News-Agent](https://github.com/MichiBl/Stockwise-News-Agent) und
 [local-mail-ai](https://github.com/MichiBl/local-mail-ai-).
 
+## Voraussetzungen
+
+- macOS oder Linux (Windows über WSL), mit `bash` und `git` — mehr braucht
+  der Werkzeugkasten selbst nicht (Ziel-Kompatibilität: Bash 3.2, die
+  macOS-Standard-Bash).
+- `gitleaks` für die lokalen Secret-Scans (`brew install gitleaks`); fehlt
+  es, degradieren die Hooks mit Hinweis — die CI scannt trotzdem.
+- Optional: `gh` (nur für `setup-github.sh`) sowie `shellcheck` und
+  `python3` (nur zum Entwickeln am Template selbst; die Hooks haben
+  Fallbacks ohne Python).
+
 ## Verwendung
 
 ```bash
@@ -62,8 +73,14 @@ Dateien zerfallen dafür in zwei Sorten:
 
 | Sorte | Was | Regel |
 |---|---|---|
-| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/` | muss überall identisch sein — Abweichung ist Verfall |
+| **KERN** | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/`, `.githooks/`, `.github/workflows/secret-scan.yml` | muss überall identisch sein — Abweichung ist Verfall |
 | **PROJEKT** | `CLAUDE.md`, `.claude/settings.json`, `ci.yml`, `dependabot.yml`, `rulesets/*.json`, `.gitleaks.toml`, `.gitignore`, `.env.example`, `docs/requirements-status.md` | darf und soll abweichen — wird nie überschrieben |
+
+`secret-scan.yml` ist die eine Ausnahme unter `.github/`: der
+gitleaks-Backstop ist stack-unabhängig und die wichtigste Schutzschicht —
+als PROJEKT-Datei würde ausgerechnet sie still veralten, weil `--update`
+sie nie anfassen dürfte. Alles Stack-Abhängige (`ci.yml`, `dependabot.yml`)
+bleibt PROJEKT.
 
 `--diff` zeigt pro Datei `fehlt` / `identisch` / `weicht ab`, den Kurz-Diff
 aber nur für KERN-Dateien (bei PROJEKT-Dateien wäre er reines Rauschen). Der
@@ -78,9 +95,20 @@ und committen.
 einem lokalen Klon beider Repos. Über mehrere Projekte hinweg passiert das
 erfahrungsgemäß nicht, und dann laufen die Kopien wieder auseinander. Deshalb
 liegt im Zielprojekt `.github/workflows/core-drift.yml.example`: einmal nach
-`core-drift.yml` umbenennen, und der Workflow klont wöchentlich das Template,
-fährt `setup.sh --diff .` und wird bei Kern-Verfall rot. Rot heißt dort nicht
-„kaputt", sondern „Kern veraltet" — beheben mit `./setup.sh --update .`.
+`core-drift.yml` umbenennen, und der Workflow klont wöchentlich das Template
+**am letzten Release-Tag**, fährt `setup.sh --diff .` und wird bei
+Kern-Verfall rot. Rot heißt dort nicht „kaputt", sondern „Kern veraltet" —
+beheben mit `./setup.sh --update .`. Die Job-Zusammenfassung zeigt Template-
+vs. Projekt-Version und ob der Default-Branch des Templates dem Tag
+vorausläuft (dann ist dort ein Release überfällig).
+
+**Auch die Gegenrichtung wird geprüft.** `--diff` und `--update` melden
+Dateien in den Kern-Verzeichnissen des Ziels, die das Template nicht kennt —
+etwa einen Hook, den das Template inzwischen gelöscht hat, der im Projekt
+aber noch in `settings.json` verdrahtet ist und dort alten Code ausführt.
+Gelöscht wird nichts (es kann ein bewusst projekteigener Hook/Agent sein),
+und Verwaiste zählen nicht als Verfall — der `--diff`-Exit-Code bleibt
+davon unberührt.
 
 **Kopiert heißt nicht aktiv.** Zwei Hook-Sorten brauchen eine Verdrahtung, die
 in einer PROJEKT-Datei bzw. in der Git-Config steht — beide Modi melden das:
@@ -104,6 +132,41 @@ Warum die Trennung: Ohne sie meldet `--diff` in jedem Projekt Abweichungen in
 `CLAUDE.md` & Co. — Rauschen, in dem echter Verfall des Werkzeugkastens
 untergeht. Genau so laufen Kopien über Monate auseinander, ohne dass es
 jemandem auffällt.
+
+### Versionierung
+
+Das Template trägt seine Version in `VERSION` (SemVer) und dokumentiert
+Änderungen in `CHANGELOG.md`. **Ein Release = Versions-Bump in `VERSION` +
+CHANGELOG-Eintrag + Git-Tag** (`git tag vX.Y.Z && git push origin vX.Y.Z`).
+Ohne Tag sehen Zielprojekte über `core-drift.yml` keine Updates — der
+Workflow vergleicht bewusst gegen den letzten veröffentlichten Stand.
+
+`setup.sh` stempelt beim Kopieren (falls noch nicht vorhanden) und bei
+`--update` (immer) die ausgelieferte Version als `.claude/TEMPLATE_VERSION`
+ins Zielprojekt. `--diff` meldet Template- und Projekt-Version in einer
+Zeile, vergleicht sie aber nicht inhaltlich — die Wahrheit über Verfall
+bleibt der Datei-Vergleich der Kern-Dateien.
+
+### Gesundheitscheck: --doctor
+
+```bash
+./Claude-Code-Default-Repo/setup.sh --doctor /pfad/zum/projekt
+```
+
+Beantwortet die Frage „ist dieses Projekt wirklich geschützt?" in einem
+Lauf — je Schicht `ok`/`fehlt`, mit konkretem Behebungsbefehl:
+
+1. gitleaks installiert
+2. `core.hooksPath` zeigt auf `.githooks`
+3. jeder Hook in `.claude/hooks/` ist in `settings.json` verdrahtet
+4. `CLAUDE.md` ohne unbefüllte Platzhalter
+5. `.github/workflows/ci.yml` existiert
+6. Lint-Gate vorhanden (`lint`-Script bzw. ruff bzw. `verify-project.sh`)
+7. Werkzeug-Kern deckungsgleich (nutzt die `--diff`-Prüfung)
+
+Exit 1, sobald etwas fehlt — damit taugt der Modus auch als Skript-Check.
+Verändert nichts am Projekt. Zusätzlich warnt `session-start.sh` bei jedem
+Session-Start, wenn gitleaks fehlt (nie blockierend).
 
 ## Was drin ist
 
@@ -144,11 +207,13 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
     └── protect-secrets.sh       # PreToolUse-Hook: blockt Edit/Write auf .env-/Secret-Dateien
 .githooks/
 ├── pre-commit                   # gitleaks-Scan bei jedem Commit (auch ohne Claude)
+├── pre-push                     # gitleaks-Scan über die Push-Ranges (fängt --no-verify-Commits)
 └── README.md                    # Aktivierung + Schichtenübersicht für dieses Verzeichnis
 .gitignore                       # .env, Deps, Build-Artefakte, settings.local.json
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
 .github/
 ├── dependabot.yml               # hält die SHA-gepinnten Actions aktuell (wöchentlich, gebündelt)
+├── pull_request_template.md     # PR-Gerüst mit dem MC-Checkbox-Block (Haken setzt nur der Mensch)
 ├── rulesets/
 │   └── main-schutz.json         # Branch-Ruleset-Vorlage (Import via setup-github.sh oder UI)
 └── workflows/
@@ -221,6 +286,7 @@ werden direkt gefixt, ganz ohne Skill.
 | Claude-Hook `protect-secrets.sh` | blockt Schreibzugriffe (Edit/Write) von Claude auf dieselben Dateien — Vorlagen wie `.env.example` bleiben editierbar |
 | Claude-Hook `secret-scan.sh` | bevor Claude committet/pusht |
 | Git-Hook `.githooks/pre-commit` | bei jedem lokalen Commit (auch ohne Claude) |
+| Git-Hook `.githooks/pre-push` | bei jedem lokalen Push — scannt die exakten Commit-Ranges des Pushs; fängt auch git-Aliasse, Skript-Pushes und `--no-verify`-Commits |
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
 | GitHub Push Protection | serverseitig — `setup-github.sh` aktiviert sie, soweit Plan und Rechte es hergeben (sonst manuell) |
 
@@ -228,8 +294,8 @@ werden direkt gefixt, ganz ohne Skill.
 
 Die Hooks sind das Produkt dieses Repos — und Shellskripte gehen leise kaputt.
 `tests/hook-selftest.sh` prüft deshalb die Exit-Code-Verträge von
-`protect-secrets.sh`, `verify.sh`, `secret-scan.sh`, `session-start.sh` und
-`.githooks/pre-commit` gegen Wegwerf-Fixtures, dazu die CI-Aktivierung von
+`protect-secrets.sh`, `verify.sh`, `secret-scan.sh`, `session-start.sh`,
+`.githooks/pre-commit` und `.githooks/pre-push` gegen Wegwerf-Fixtures, dazu die CI-Aktivierung von
 `setup.sh` (Node/uv/pip, nie überschreiben) und per Struktur-Check, dass die
 tragenden Regeln der Agenten-Dateien (Verdict-Schema, SRP-Prüfpunkt,
 Pipeline-Gates) nicht versehentlich wegeditiert wurden — das *Verhalten* der

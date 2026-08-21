@@ -7,6 +7,7 @@
 #   * verify.sh           -> Stop-Gate: rot blockt (exit 2), grün/leer erlaubt
 #   * secret-scan.sh      -> blockt commit mit gestagtem Secret (exit 2)
 #   * .githooks/pre-commit-> blockt gestagtes Secret lokal (exit 1)
+#   * .githooks/pre-push  -> blockt Secrets in den Push-Ranges (exit 1)
 #   * session-start.sh    -> installiert Deps, blockiert die Session NIE (exit 0)
 #   * setup.sh            -> aktiviert ci.yml nach Stack, überschreibt nie
 #   * Agenten-Regeln      -> Struktur-Check: tragende Abschnitte/Regeln der
@@ -158,6 +159,12 @@ d="$(mkfix clean)"
 check "keine geänderten Dateien -> Stop erlaubt" 0 \
   "$(hook_exit_in "$d" "$V" '{}')"
 
+# Gleichstand der Python-Pfade: `ruff format --check` lief nur im uv-Zweig —
+# pip-Projekte bekamen still kein Format-Gate. (Struktur-Check: der pip-Pfad
+# ist ohne installiertes pip-ruff nicht deterministisch ausführbar.)
+rc=0; [ "$(grep -c 'ruff format --check' "$V")" -eq 2 ] || rc=1
+check "ruff format --check in beiden Python-Pfaden (uv + pip)" 0 "$rc"
+
 d="$(mkfix override)"
 echo "x" > "$d/foo.js"
 mkdir -p "$d/.claude/hooks"
@@ -235,9 +242,70 @@ if command -v gitleaks >/dev/null 2>&1; then
   check "pre-commit blockt gestagtes Secret" 1 "$rc"
   rc=0; (cd "$OK" && bash "$ROOT/.githooks/pre-commit") >/dev/null 2>&1 || rc=$?
   check "pre-commit lässt sauberen Commit durch" 0 "$rc"
+
+  # pre-push bekommt von Git die Push-Ranges per stdin (Format:
+  # "<local_ref> <local_sha> <remote_ref> <remote_sha>"). Die Fixtures
+  # simulieren genau diese Zeilen — ein echter Remote ist dafür nicht nötig.
+  echo "== .githooks/pre-push =="
+  PP="$ROOT/.githooks/pre-push"
+  Z40="0000000000000000000000000000000000000000"
+
+  # Historie: 1. Commit sauber, 2. Commit enthält das Fake-Secret. Damit lässt
+  # sich derselbe Stand als "alles neu" (remote_sha = 0…0) und als
+  # Delta-Push (remote_sha = 1. Commit) prüfen.
+  PUSHFIX="$(mkfix pushhot)"
+  echo "nur text" > "$PUSHFIX/notes.txt"
+  git -C "$PUSHFIX" add notes.txt
+  git_t -C "$PUSHFIX" commit -q -m "sauber"
+  BASE_SHA="$(git -C "$PUSHFIX" rev-parse HEAD)"
+  printf 'aws_access_key_id = %s\n' "$AWS_FAKE" > "$PUSHFIX/config.txt"
+  git -C "$PUSHFIX" add config.txt
+  git_t -C "$PUSHFIX" commit -q -m "leak"
+  HEAD_SHA="$(git -C "$PUSHFIX" rev-parse HEAD)"
+
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$HEAD_SHA" "$Z40" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push blockt Secret beim Erst-Push (neuer Branch)" 1 "$rc"
+
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$HEAD_SHA" "$BASE_SHA" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push blockt Secret im Delta-Range" 1 "$rc"
+
+  # Range remote==local: der Remote hat schon alles — auch mit Secret in der
+  # Historie darf der (leere) Push nicht blockiert werden.
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$HEAD_SHA" "$HEAD_SHA" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push lässt leeren Range durch (Remote aktuell)" 0 "$rc"
+
+  # Branch-Löschung (local_sha = 0…0): es geht nichts zum Remote.
+  rc=0
+  printf '(delete) %s refs/heads/alt %s\n' "$Z40" "$HEAD_SHA" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push lässt Branch-Löschung durch" 0 "$rc"
+
+  PUSHOK="$(mkfix pushok)"
+  echo "nur text" > "$PUSHOK/notes.txt"
+  git -C "$PUSHOK" add notes.txt
+  git_t -C "$PUSHOK" commit -q -m "sauber"
+  OK_SHA="$(git -C "$PUSHOK" rev-parse HEAD)"
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$OK_SHA" "$Z40" \
+    | (cd "$PUSHOK" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push lässt sauberen Push durch" 0 "$rc"
 else
   skip "gitleaks nicht installiert — Scan-Tests übersprungen (CI führt sie aus)."
 fi
+
+# Ohne gitleaks muss pre-push durchwinken UND den tragenden Backstop nennen —
+# derselbe Vertrag wie bei pre-commit (Graceful Degradation, nie still).
+rc=0
+out="$(printf 'refs/heads/main 1111111111111111111111111111111111111111 refs/heads/main 0000000000000000000000000000000000000000\n' \
+  | env -i PATH="$NOPY_BIN" bash "$ROOT/.githooks/pre-push" origin dummy-url 2>&1)" || rc=$?
+check "pre-push ohne gitleaks winkt durch (exit 0)" 0 "$rc"
+check_contains "pre-push ohne gitleaks nennt den CI-Backstop" "CI erzwingt ihn trotzdem" "$out"
 
 # --- session-start.sh ------------------------------------------------------------
 echo "== session-start.sh =="
@@ -265,6 +333,9 @@ if command -v npm >/dev/null 2>&1; then
   hook_run_in "$d" "$SST"
   check "fehlgeschlagener Install blockiert die Session nicht" 0 "$RC"
   check_contains "Fehlschlag wird gemeldet" "fehlgeschlagen" "$ERR"
+  # Der Install-Output ging früher nach /dev/null — der Grund des Fehlschlags
+  # war damit unauffindbar. Jetzt muss die Meldung die Logdatei nennen.
+  check_contains "Fehlschlag nennt die Logdatei" "session-start-install.log" "$ERR"
 else
   skip "npm nicht installiert — session-start-Tests übersprungen."
 fi
@@ -288,6 +359,14 @@ d="$(mkfix ss-ohne-githooks)"
 hook_run_in "$d" "$SST"
 rc=0; [ -z "$(git -C "$d" config --get core.hooksPath || true)" ] || rc=1
 check "ohne .githooks/pre-commit wird nichts gesetzt" 0 "$rc"
+
+# Ohne gitleaks muss der Session-Start warnen (nie blockieren) — sonst fällt
+# das Fehlen der lokalen Secret-Schichten erst beim ersten Commit auf.
+# (NOPY_BIN enthält kein gitleaks, egal was auf dem Host installiert ist.)
+d="$(mkfix ss-ohne-gitleaks)"
+hook_run_nopy "$d" "$SST" ""
+check "ohne gitleaks: session-start blockiert nicht" 0 "$RC"
+check_contains "ohne gitleaks: Warnung auf stderr" "gitleaks nicht installiert" "$ERR"
 
 # --- setup.sh: CI-Aktivierung ------------------------------------------------------
 echo "== setup.sh: CI-Aktivierung =="
@@ -331,6 +410,20 @@ rc=0
 check "Python ohne uv.lock -> nur pip-Job in ci.yml" 0 "$rc"
 check_ci_vollstaendig "pip-Vorlage vollständig übernommen" \
   "$ROOT/.github/workflows/ci-python-pip.yml.example" "$d/.github/workflows/ci.yml"
+
+# Dependabot-Hinweis: die npm-/pip-Blöcke der Vorlage sind auskommentiert —
+# bei erkanntem Stack muss setup.sh darauf hinweisen (und schweigen, sobald
+# das Projekt den Block aktiviert hat).
+d="$TMP/ci-dbot"; mkdir -p "$d"; printf '{}' > "$d/package.json"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+check_contains "Node-Stack -> Hinweis auf auskommentierten Dependabot-Block" "dependabot.yml einkommentieren" "$out"
+printf 'version: 2\nupdates:\n  - package-ecosystem: npm\n' > "$d/.github/dependabot.yml"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+check_absent "aktivierter npm-Block -> kein Hinweis mehr" "dependabot.yml einkommentieren" "$out"
+
+d="$TMP/ci-dbot-py"; mkdir -p "$d"; touch "$d/pyproject.toml" "$d/uv.lock"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+check_contains "Python-Stack -> Hinweis auf auskommentierten Dependabot-Block" "dependabot.yml einkommentieren" "$out"
 
 d="$TMP/ci-exist"; mkdir -p "$d/.github/workflows"
 echo "# eigene CI" > "$d/.github/workflows/ci.yml"
@@ -410,10 +503,73 @@ rc=0; cmp -s "$ROOT/.claude/hooks/verify.sh" "$d/.claude/hooks/verify.sh" || rc=
 check "--update ergänzt fehlende Kern-Datei" 0 "$rc"
 rc=0; [ -x "$d/.claude/hooks/verify.sh" ] || rc=1
 check "--update macht Hooks wieder ausführbar" 0 "$rc"
+rc=0; [ -x "$d/.githooks/pre-push" ] || rc=1
+check "--update macht auch pre-push ausführbar" 0 "$rc"
 rc=0; grep -qx "eigener Inhalt" "$d/CLAUDE.md" || rc=1
 check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
 bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
 check "nach --update ist der Kern wieder deckungsgleich" 0 "$rc"
+
+# Versionierung: setup.sh stempelt die ausgelieferte Template-Version ins
+# Ziel; --diff meldet beide Versionen, wertet den Stempel aber nicht als
+# Verfalls-Kriterium (die Wahrheit bleibt der Datei-Vergleich).
+rc=0; grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' "$ROOT/VERSION" || rc=1
+check "VERSION ist SemVer" 0 "$rc"
+rc=0; grep -qF "$(cat "$ROOT/VERSION")" "$ROOT/CHANGELOG.md" || rc=1
+check "CHANGELOG hat einen Eintrag zur aktuellen VERSION" 0 "$rc"
+
+d="$TMP/sync-version"; mkdir -p "$d"
+run_setup "$d"
+rc=0; [ "$(cat "$d/.claude/TEMPLATE_VERSION" 2>/dev/null)" = "$(cat "$ROOT/VERSION")" ] || rc=1
+check "Kopieren stempelt .claude/TEMPLATE_VERSION" 0 "$rc"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "Versionsstempel ist für --diff kein Verfall (Exit 0)" 0 "$rc"
+check_contains "--diff meldet Template- und Projekt-Version" "Version: Template" "$out"
+rm -f "$d/.claude/TEMPLATE_VERSION"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "fehlender Versionsstempel ist kein Verfall (Exit 0)" 0 "$rc"
+check_contains "--diff benennt den fehlenden Stempel" "nie gestempelt" "$out"
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1
+rc=0; [ "$(cat "$d/.claude/TEMPLATE_VERSION" 2>/dev/null)" = "$(cat "$ROOT/VERSION")" ] || rc=1
+check "--update stempelt die Version nach" 0 "$rc"
+
+# Verwaiste Kern-Dateien: die Gegenrichtung des Vergleichs. Eine Datei, die
+# nur im Ziel liegt, wird gemeldet (sie könnte verdrahteter Alt-Code sein),
+# zählt aber nicht als Verfall und wird nie gelöscht.
+d="$TMP/sync-verwaist"; mkdir -p "$d"
+run_setup "$d"
+echo "alt" > "$d/.claude/hooks/altlast.sh"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "verwaiste Kern-Datei ändert den --diff-Exit nicht" 0 "$rc"
+check_contains "--diff meldet die verwaiste Datei" "altlast.sh" "$out"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$d/.claude/hooks/verify-project.sh"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"
+check_absent "verify-project.sh (projekteigenes Gate) gilt nicht als verwaist" "verify-project.sh" "$out"
+# ("Template nicht kennt" statt Dateiname: altlast.sh taucht im
+# --update-Output auch in der Unverdrahtet-Warnung auf — die Assertion muss
+# den Verwaisten-Report treffen, nicht die.)
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
+check_contains "--update meldet die verwaiste Datei ebenfalls" "Template nicht kennt" "$out"
+rc=0; [ -e "$d/.claude/hooks/altlast.sh" ] || rc=1
+check "verwaiste Datei wird nicht gelöscht" 0 "$rc"
+
+# secret-scan.yml ist der stack-unabhängige gitleaks-Backstop und deshalb die
+# eine KERN-Datei unter .github/: eine verbogene Kopie ist Verfall und wird
+# von --update geheilt. ci.yml direkt daneben bleibt PROJEKT — die Gegenprobe
+# stellt sicher, dass die Hebung nicht versehentlich das ganze Verzeichnis
+# erfasst hat.
+d="$TMP/sync-secretscan"; mkdir -p "$d"
+printf '{}' > "$d/package.json"
+run_setup "$d"
+echo "# lokal verbogen" >> "$d/.github/workflows/secret-scan.yml"
+echo "# eigene ci" > "$d/.github/workflows/ci.yml"
+bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
+check "verbogene secret-scan.yml -> --diff meldet Kern-Verfall" 1 "$rc"
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1
+rc=0; cmp -s "$ROOT/.github/workflows/secret-scan.yml" "$d/.github/workflows/secret-scan.yml" || rc=1
+check "--update stellt secret-scan.yml wieder her" 0 "$rc"
+rc=0; grep -q "eigene ci" "$d/.github/workflows/ci.yml" || rc=1
+check "--update lässt ci.yml (PROJEKT) unangetastet" 0 "$rc"
 
 # Ein neu kopierter Hook, den settings.json nicht aufruft, tut nichts — das
 # Projekt sieht aber geschützt aus. --update muss das melden.
@@ -451,6 +607,50 @@ out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)"
 rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
+
+# --- setup.sh: --doctor --------------------------------------------------------------
+# Der Doctor beantwortet "ist dieses Projekt wirklich geschützt?" in einem
+# Lauf. Exit 1, sobald eine Schicht fehlt; jede Meldung trägt den
+# Behebungsbefehl. Er verändert nichts.
+echo "== setup.sh: --doctor =="
+
+# Frisch kopiertes Ziel ohne Git-Repo, mit Platzhalter-CLAUDE.md, ohne
+# Lint-Gate: mehrere Befunde auf einmal.
+d="$TMP/doc-kaputt"; mkdir -p "$d"
+run_setup "$d"
+out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"; rc=$?
+check "--doctor meldet fehlende Schichten mit Exit 1" 1 "$rc"
+check_contains "--doctor findet die Platzhalter-CLAUDE.md" "Platzhalter" "$out"
+check_contains "--doctor findet das fehlende Git-Repo" "Git-Repo" "$out"
+check_contains "--doctor findet das fehlende Lint-Gate" "Lint-Gate" "$out"
+check_contains "--doctor nennt Behebungsbefehle" "->" "$out"
+
+# Entdrahteter Hook: liegt in .claude/hooks/, wird von settings.json aber
+# nicht aufgerufen — der gefährlichste Zustand, der Doctor muss ihn nennen.
+python3 - "$d/.claude/settings.json" <<'PY' 2>/dev/null || sed -i.bak 's/protect-secrets\.sh/entfernt.sh/' "$d/.claude/settings.json"
+import json, sys
+p = sys.argv[1]
+s = json.load(open(p))
+s["hooks"]["PreToolUse"] = [h for h in s["hooks"]["PreToolUse"]
+                            if "protect-secrets.sh" not in json.dumps(h)]
+json.dump(s, open(p, "w"), indent=2)
+PY
+out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"
+check_contains "--doctor findet den entdrahteten Hook" "protect-secrets.sh" "$out"
+
+# Gesundes Projekt: alle sieben Schichten aktiv -> Exit 0. (Braucht gitleaks
+# auf dem Host — Schicht 1 ist sonst zu Recht rot.)
+if command -v gitleaks >/dev/null 2>&1; then
+  d="$(mkfix doc-gesund)"
+  printf '{"scripts":{"lint":"exit 0"}}' > "$d/package.json"
+  run_setup "$d"
+  echo "Projektkontext, vollständig ausgefüllt." > "$d/CLAUDE.md"
+  out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"; rc=$?
+  check "--doctor auf gesundem Projekt -> Exit 0" 0 "$rc"
+  check_contains "--doctor meldet alle Schichten aktiv" "alle Schichten aktiv" "$out"
+else
+  skip "gitleaks nicht installiert — Doctor-Gesund-Test übersprungen (CI führt ihn aus)."
+fi
 
 # --- setup-github.sh: --dry-run ------------------------------------------------------
 # Das Skript schaltet serverseitig (Dependabot, Secret scanning, Push protection,
@@ -617,6 +817,10 @@ marker() { # marker <datei> <text>
   fi
 }
 marker .claude/agents/code-reviewer.md "Verdict"
+# Diff-Basis ist der erkannte Default-Branch, kein hartes `main` — sonst
+# reviewen die Agenten in master-/develop-Repos den falschen Diff.
+marker .claude/agents/code-reviewer.md "symbolic-ref"
+marker .claude/agents/qa-engineer.md "symbolic-ref"
 marker .claude/agents/code-reviewer.md "Verantwortlichkeits-Schnitt (SRP)"
 marker .claude/agents/code-reviewer.md "Harte Grenzen"
 marker .claude/agents/code-reviewer.md "Reuse Check"
@@ -627,6 +831,9 @@ marker .claude/agents/qa-engineer.md "qa-plan.md"
 marker .claude/agents/qa-engineer.md "Manuelle Verifikation (MC)"
 marker .claude/agents/qa-engineer.md "Warum manuell"
 marker .claude/skills/feature/SKILL.md "GATE 1"
+# Konvergenz-Bremse: ohne das Limit kreist die Pipeline bei einem Review,
+# das nicht konvergiert, unbegrenzt zwischen Fix und Re-Review.
+marker .claude/skills/feature/SKILL.md "Maximal 3 Review-Zyklen"
 marker .claude/skills/feature/SKILL.md "GATE 2"
 marker .claude/skills/feature/SKILL.md "Selbst prüfen, bevor der PR aus dem Draft geht"
 marker templates/CLAUDE.md "eine Kernverantwortung"

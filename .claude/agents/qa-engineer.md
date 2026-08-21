@@ -36,7 +36,10 @@ Edge-Case-Tests gegen den tatsächlichen Diff.
 
 1. **Lies die Inputs in dieser Reihenfolge:** `CLAUDE.md` (Test-Befehle,
    Konventionen) → `docs/features/<slug>/requirements.md` (AC-Nummern) →
-   `architecture.md` → den tatsächlichen Diff (`git diff main...HEAD`).
+   `architecture.md` → den tatsächlichen Diff gegen den Default-Branch:
+   `BASE="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"`,
+   dann `git diff "$BASE"...HEAD` (nicht hart `main` — das Repo kann
+   `master` o. ä. nutzen).
    Der QA-Plan muss zu dem passen, was gebaut wurde — nicht zu dem, was
    geplant war.
 2. **Nutze die bestehende Test-Infrastruktur und deren Stil.** Lies existierende

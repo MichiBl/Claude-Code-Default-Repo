@@ -43,8 +43,24 @@ jobs:
         # actions/checkout v7.0.1
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Template klonen
-        run: git clone --depth 1 "$TEMPLATE_REPO" "$RUNNER_TEMP/template"
+      - name: Template klonen (letzter Release-Tag)
+        run: |
+          set -euo pipefail
+          # Voller Klon statt --depth 1: git describe braucht die Tags.
+          # Verglichen wird gegen den letzten VERÖFFENTLICHTEN Stand, nicht
+          # gegen main — sonst meldet der Check Drift für Änderungen, die das
+          # Template noch gar nicht freigegeben hat. Die Voraus-Zählung unten
+          # macht sichtbar, wenn im Template ein Release überfällig ist
+          # (main läuft dem Tag davon).
+          git clone --quiet "$TEMPLATE_REPO" "$RUNNER_TEMP/template"
+          TAG="$(git -C "$RUNNER_TEMP/template" describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "$TAG" ]; then
+            AHEAD="$(git -C "$RUNNER_TEMP/template" rev-list --count "$TAG..HEAD" 2>/dev/null || echo "?")"
+            git -C "$RUNNER_TEMP/template" checkout --quiet "$TAG"
+            echo "Template-Stand: Release-Tag $TAG (Default-Branch ist $AHEAD Commit(s) voraus)" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠ Kein Release-Tag im Template gefunden — Vergleich gegen den Default-Branch." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Kern vergleichen
         run: |
@@ -55,4 +71,7 @@ jobs:
           # der Maschine eines Menschen verdrahtet ist, kann die CI nicht sehen.
           # Lokal zieht session-start.sh die Verdrahtung bei jedem Start nach.
           [ -f .githooks/pre-commit ] && git config core.hooksPath .githooks
+          TPL_V="$(cat "$RUNNER_TEMP/template/VERSION" 2>/dev/null || echo "unbekannt")"
+          PRJ_V="$(cat .claude/TEMPLATE_VERSION 2>/dev/null || echo "unbekannt (nie gestempelt)")"
+          echo "Version: Template $TPL_V — Projekt $PRJ_V" | tee -a "$GITHUB_STEP_SUMMARY"
           "$RUNNER_TEMP/template/setup.sh" --diff .

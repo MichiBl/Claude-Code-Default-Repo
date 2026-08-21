@@ -6,6 +6,7 @@
 #   ./setup.sh /pfad/zum/projekt           # Dateien kopieren (nie überschreiben)
 #   ./setup.sh --diff /pfad/zum/projekt    # nur vergleichen: fehlt/identisch/weicht ab
 #   ./setup.sh --update /pfad/zum/projekt  # NUR den Werkzeug-Kern überschreiben
+#   ./setup.sh --doctor /pfad/zum/projekt  # Schutzschichten prüfen: ok/fehlt je Schicht
 #
 # Zwei Sorten Dateien, und der Unterschied ist der Kern des Skripts:
 #
@@ -48,11 +49,12 @@ MODE="copy"
 case "${1:-}" in
   --diff)   MODE="diff";   shift ;;
   --update) MODE="update"; shift ;;
+  --doctor) MODE="doctor"; shift ;;
 esac
 TARGET="${1:-}"
 
 if [ -z "$TARGET" ] || [ ! -d "$TARGET" ]; then
-  echo "Verwendung: ./setup.sh [--diff|--update] /pfad/zum/projekt  (Verzeichnis muss existieren)" >&2
+  echo "Verwendung: ./setup.sh [--diff|--update|--doctor] /pfad/zum/projekt  (Verzeichnis muss existieren)" >&2
   exit 1
 fi
 TARGET="$(cd "$TARGET" && pwd)"
@@ -68,11 +70,18 @@ hooks_inert=0  # .githooks/pre-commit liegt da, ist aber nicht aktiviert
 
 # is_core <dest_rel> -> 0 = Werkzeug-Kern (muss überall identisch sein).
 # Bewusst NICHT im Kern: .claude/settings.json (Projekte ergänzen eigene
-# Permissions/Env), .github/** (ci.yml und dependabot.yml hängen am Stack),
+# Permissions/Env), ci.yml und dependabot.yml (hängen am Stack),
 # .gitleaks.toml (projekteigene Allowlist).
+# secret-scan.yml ist dagegen KERN, obwohl es unter .github/ liegt: der
+# gitleaks-Backstop ist stack-unabhängig, und als PROJEKT-Datei würde
+# ausgerechnet die wichtigste Schutzschicht still veralten — --update hätte
+# sie nie angefasst. core-drift.yml.example bleibt PROJEKT: das Ziel aktiviert
+# es durch UMBENENNEN nach core-drift.yml, ein Inhaltsvergleich unter dem
+# Vorlagen-Namen liefe dort dauerhaft ins Leere.
 is_core() {
   case "$1" in
     .claude/agents/*|.claude/skills/*|.claude/hooks/*|.githooks/*) return 0 ;;
+    .github/workflows/secret-scan.yml) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -81,17 +90,20 @@ is_core() {
 # PROJEKT-Datei, die --update bewusst nicht anfasst. Ein neu dazugekommener Hook
 # liegt sonst still im Verzeichnis und wird nie aufgerufen: der gefährlichste
 # Fehlmodus, weil das Projekt geschützt AUSSIEHT. Deshalb hier explizit melden.
-warn_unwired_hooks() {
-  local settings="$TARGET/.claude/settings.json" hook name unwired=""
+list_unwired_hooks() { # Hook-Namen, die settings.json nicht aufruft (einer je Zeile)
+  local settings="$TARGET/.claude/settings.json" hook name
   [ -f "$settings" ] || return 0
   for hook in "$TARGET/.claude/hooks/"*.sh; do
     [ -e "$hook" ] || continue
     name="$(basename "$hook")"
     [ "$name" = "verify-project.sh" ] && continue   # projekteigenes Gate, wird von verify.sh aufgerufen
-    if ! grep -qF "$name" "$settings"; then
-      unwired="${unwired}${name} "
-    fi
+    grep -qF "$name" "$settings" || echo "$name"
   done
+}
+
+warn_unwired_hooks() {
+  local unwired
+  unwired="$(list_unwired_hooks | tr '\n' ' ')"
   [ -z "$unwired" ] && return 0
   echo
   echo "⚠  Nicht verdrahtete Hooks: $unwired"
@@ -99,6 +111,39 @@ warn_unwired_hooks() {
   echo "   .claude/settings.json nicht aufgerufen — sie tun also NICHTS."
   echo "   settings.json ist eine PROJEKT-Datei; Verdrahtung von Hand ergänzen"
   echo "   (Vorlage: $SRC/.claude/settings.json)."
+  return 0
+}
+
+# Verwaiste Kern-Dateien: --diff/--update vergleichen nur in Richtung
+# Template -> Ziel. Eine Datei, die das Template GELÖSCHT hat, bleibt im Ziel
+# unbemerkt liegen — und eine noch in settings.json verdrahtete Hook-Datei
+# führt dort alten Code aus, den niemand mehr pflegt. Deshalb die Gegenrichtung:
+# melden, was in den Kern-Verzeichnissen des Ziels liegt, ohne im Template zu
+# existieren. NIE löschen — es kann auch ein bewusst projekteigener
+# Hook/Agent sein (settings.json ist PROJEKT und darf eigene verdrahten).
+report_orphans() {
+  local dir rel found=""
+  for dir in .claude/agents .claude/skills .claude/hooks .githooks; do
+    [ -d "$TARGET/$dir" ] || continue
+    while IFS= read -r -d '' f; do
+      rel="${f#"$TARGET/"}"
+      # Das dokumentierte projekteigene Gate — nie als verwaist melden, auch
+      # falls das Template sein eigenes verify-project.sh einmal aufgibt.
+      [ "$rel" = ".claude/hooks/verify-project.sh" ] && continue
+      if [ ! -e "$SRC/$rel" ]; then
+        found="${found}     ${rel}
+"
+      fi
+    done < <(find "$TARGET/$dir" -type f ! -name '.DS_Store' -print0)
+  done
+  [ -z "$found" ] && return 0
+  echo
+  echo "⚠  Dateien in Kern-Verzeichnissen, die das Template nicht kennt"
+  echo "   (verwaist — oder bewusst projekteigen):"
+  printf '%s' "$found"
+  echo "   Es wird nichts gelöscht. Aber prüfen: eine verwaiste Hook-Datei, die"
+  echo "   .claude/settings.json noch aufruft, führt alten Code aus, den das"
+  echo "   Template nicht mehr pflegt. Projekteigene Dateien sind in Ordnung."
   return 0
 }
 
@@ -231,12 +276,123 @@ process_tree() {
     ! -name 'template-pin-check.yml' -print0)
 }
 
+# --- Doctor: Schutzschichten prüfen, nichts verändern ---------------------------
+# Ein Sammelbefehl für die Frage "ist dieses Projekt wirklich geschützt?".
+# Jede Prüfung entspricht einer Schicht, die einzeln schon irgendwo gemeldet
+# wird (--diff, --update, setup-Warnungen) oder bisher nirgends auffiel
+# (Platzhalter, fehlendes Lint-Gate). Exit 1, sobald etwas fehlt — damit
+# taugt der Modus als Prüfung, nicht nur als Bericht.
+if [ "$MODE" = "doctor" ]; then
+  echo "Claude Code Default Setup — Doctor: $TARGET"
+  echo
+  DOC_FAIL=0
+  doc_ok()   { echo "  ✓ ok:    $1"; }
+  doc_fail() { # doc_fail <befund> <behebung>...
+    echo "  ✗ fehlt: $1"; shift
+    local fix; for fix in "$@"; do echo "           -> $fix"; done
+    DOC_FAIL=$((DOC_FAIL + 1))
+  }
+
+  # 1. gitleaks — ohne das Binary tragen pre-commit/pre-push/secret-scan.sh nicht.
+  if command -v gitleaks >/dev/null 2>&1; then
+    doc_ok "gitleaks installiert"
+  else
+    doc_fail "gitleaks nicht installiert — lokale Secret-Scans laufen NICHT (CI bleibt Backstop)" \
+      "brew install gitleaks   # sonst: https://github.com/gitleaks/gitleaks#installing"
+  fi
+
+  # 2. core.hooksPath — ohne Verdrahtung liegen die .githooks nur herum.
+  if ! git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    doc_fail "kein Git-Repo — .githooks/pre-commit und pre-push laufen nie" \
+      "git -C \"$TARGET\" init && git -C \"$TARGET\" config core.hooksPath .githooks"
+  elif [ "$(git -C "$TARGET" config --get core.hooksPath 2>/dev/null || true)" = ".githooks" ]; then
+    doc_ok "core.hooksPath zeigt auf .githooks"
+  else
+    doc_fail "core.hooksPath zeigt nicht auf .githooks — pre-commit/pre-push laufen nie" \
+      "git -C \"$TARGET\" config core.hooksPath .githooks"
+  fi
+
+  # 3. Hook-Verdrahtung in settings.json — kopiert heißt nicht aktiv.
+  if [ ! -f "$TARGET/.claude/settings.json" ]; then
+    doc_fail ".claude/settings.json fehlt — kein Hook wird aufgerufen" \
+      "./setup.sh \"$TARGET\"   # kopiert die Vorlage"
+  else
+    UNWIRED="$(list_unwired_hooks | tr '\n' ' ')"
+    if [ -z "$UNWIRED" ]; then
+      doc_ok "alle Hooks in .claude/hooks/ sind in settings.json verdrahtet"
+    else
+      doc_fail "nicht verdrahtete Hooks (liegen da, tun nichts): $UNWIRED" \
+        "Verdrahtung in .claude/settings.json ergänzen (Vorlage: $SRC/.claude/settings.json)"
+    fi
+  fi
+
+  # 4. CLAUDE.md-Platzhalter — die Agenten lesen daraus; unbefüllt arbeiten
+  # sie mit "<test>" statt echten Befehlen. Geprüft werden die Marker der
+  # Vorlage (nicht <slug> — der ist Struktur, kein Platzhalter).
+  if [ ! -f "$TARGET/CLAUDE.md" ]; then
+    doc_fail "CLAUDE.md fehlt" "./setup.sh \"$TARGET\"   # kopiert die Vorlage, dann ausfüllen"
+  elif grep -qE '<(install|dev|build|test|lint|typecheck|beschreibung|PLATZHALTER|VAR_NAME)>' "$TARGET/CLAUDE.md"; then
+    doc_fail "CLAUDE.md enthält unbefüllte Platzhalter" \
+      "in Claude Code: \"Fülle die CLAUDE.md-Platzhalter anhand dieses Repos aus.\""
+  else
+    doc_ok "CLAUDE.md ohne unbefüllte Platzhalter"
+  fi
+
+  # 5. ci.yml — ohne CI gibt es kein nicht-überspringbares Gate.
+  if [ -f "$TARGET/.github/workflows/ci.yml" ]; then
+    doc_ok ".github/workflows/ci.yml existiert"
+  else
+    doc_fail ".github/workflows/ci.yml fehlt — kein CI-Gate" \
+      "passende ci-*.yml.example nach ci.yml umbenennen und anpassen (oder ./setup.sh \"$TARGET\")"
+  fi
+
+  # 6. Lint-Gate — ohne Linter laufen verify.sh, CI und QA still leer.
+  if [ -x "$TARGET/.claude/hooks/verify-project.sh" ]; then
+    doc_ok "Lint-Gate vorhanden (projekteigenes verify-project.sh)"
+  elif [ -f "$TARGET/package.json" ] && grep -q '"lint"' "$TARGET/package.json"; then
+    doc_ok "Lint-Gate vorhanden (lint-Script in package.json)"
+  elif grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
+    doc_ok "Lint-Gate vorhanden (ruff in den Dependencies)"
+  else
+    doc_fail "kein Lint-Gate erkennbar — verify.sh/CI/QA linten NICHT" \
+      "Node: \"lint\"-Script in package.json; Python: ruff als Dev-Dependency; andere Stacks: .claude/hooks/verify-project.sh"
+  fi
+
+  # 7. Kern deckungsgleich — dieselbe Prüfung wie --diff, nur als eine Zeile.
+  if "$0" --diff "$TARGET" >/dev/null 2>&1; then
+    doc_ok "Werkzeug-Kern deckungsgleich mit dem Template"
+  else
+    doc_fail "Werkzeug-Kern weicht ab oder ist inaktiv (Details: ./setup.sh --diff \"$TARGET\")" \
+      "./setup.sh --update \"$TARGET\""
+  fi
+
+  echo
+  if [ "$DOC_FAIL" -gt 0 ]; then
+    echo "Ergebnis: $DOC_FAIL Schicht(en) fehlen oder sind inaktiv (Behebung siehe oben)."
+    exit 1
+  fi
+  echo "Ergebnis: alle Schichten aktiv."
+  exit 0
+fi
+
 case "$MODE" in
   diff)   echo "Claude Code Default Setup — Vergleich mit $TARGET" ;;
   update) echo "Claude Code Default Setup — Werkzeug-Kern aktualisieren in $TARGET" ;;
   *)      echo "Claude Code Default Setup -> $TARGET" ;;
 esac
 echo
+
+# Versionsstempel: welche Template-Version zuletzt in dieses Ziel kam.
+# .claude/TEMPLATE_VERSION ist KERN im Geiste, wird aber nie inhaltlich
+# verglichen — --diff MELDET die Versionen nur (der Inhaltsvergleich der
+# Kern-Dateien bleibt die eigentliche Wahrheit; ein Versionsvergleich obendrauf
+# würde denselben Verfall doppelt melden). Die Datei existiert nur in
+# Zielprojekten; das Template selbst trägt seine Version in VERSION.
+TEMPLATE_VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo "unbekannt")"
+stamp_version() {
+  mkdir -p "$TARGET/.claude"
+  printf '%s\n' "$TEMPLATE_VERSION" > "$TARGET/.claude/TEMPLATE_VERSION"
+}
 
 process_tree ".claude"
 process_tree ".githooks"
@@ -250,7 +406,11 @@ process_file "docs/requirements-status.md" "docs/requirements-status.md"
 if [ "$MODE" = "diff" ]; then
   echo
   echo "Ergebnis: $identical identisch, $differs abweichend, $missing fehlend."
+  echo "Version: Template $TEMPLATE_VERSION — Projekt $(cat "$TARGET/.claude/TEMPLATE_VERSION" 2>/dev/null || echo "unbekannt (nie gestempelt)")"
   git_hooks_path 1 || hooks_inert=1
+  # Verwaiste zählen bewusst NICHT als Verfall (Exit bleibt wie bisher):
+  # sie können projekteigen sein, und ein roter Drift-Check dafür wäre Rauschen.
+  report_orphans
   if [ "$core_drift" -gt 0 ]; then
     echo
     echo "⚠  $core_drift Kern-Datei(en) weichen ab oder fehlen — der Werkzeugkasten"
@@ -266,12 +426,17 @@ if [ "$MODE" = "diff" ]; then
 fi
 
 if [ "$MODE" = "update" ]; then
-  chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" 2>/dev/null || true
+  chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.githooks/pre-push" 2>/dev/null || true
+  # --update bringt den Kern auf den Template-Stand — der Stempel wird also
+  # immer nachgezogen (auch wenn 0 Dateien zu heben waren: identisch heißt
+  # ebenfalls "auf diesem Stand").
+  stamp_version
   echo
   echo "Fertig: $updated Kern-Datei(en) aktualisiert, $identical bereits aktuell."
   echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
   git_hooks_path || true
   warn_unwired_hooks
+  report_orphans
   if [ "$updated" -gt 0 ]; then
     echo
     echo "Änderungen vor dem Commit durchsehen: git -C $TARGET diff"
@@ -280,7 +445,12 @@ if [ "$MODE" = "update" ]; then
 fi
 
 # Hooks ausführbar machen.
-chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" 2>/dev/null || true
+chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.githooks/pre-push" 2>/dev/null || true
+
+# Kopier-Modus überschreibt nie — der Stempel folgt derselben Regel und wird
+# nur gesetzt, wenn er fehlt (sonst behauptete er einen Stand, den die
+# übersprungenen Dateien nicht haben müssen).
+[ -f "$TARGET/.claude/TEMPLATE_VERSION" ] || stamp_version
 
 # Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist.
 if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -318,6 +488,19 @@ activate_ci() { # activate_ci <example-datei>
   } > "$dest"
 }
 
+# Dependabot deckt ohne Zutun nur github-actions ab; die npm-/pip-Blöcke der
+# Vorlage sind auskommentiert. Nur hinweisen, nicht hineineditieren: die
+# Blöcke tragen Kommentare und Optionen, die das Projekt bewusst wählen soll,
+# und dependabot.yml ist eine PROJEKT-Datei.
+hint_dependabot() { # hint_dependabot <regex> <anzeigename>
+  local dbot="$TARGET/.github/dependabot.yml"
+  [ -f "$dbot" ] || return 0
+  if ! grep -qE "^[[:space:]]*- package-ecosystem: ($1)" "$dbot"; then
+    echo "  ℹ  Dependabot hebt bisher nur die GitHub Actions — den $2-Block in"
+    echo "     .github/dependabot.yml einkommentieren, damit auch die Projekt-Dependencies gehoben werden."
+  fi
+}
+
 echo
 CI_DEST="$TARGET/.github/workflows/ci.yml"
 if [ -f "$TARGET/package.json" ]; then
@@ -330,6 +513,7 @@ if [ -f "$TARGET/package.json" ]; then
   if ! grep -q '"lint"' "$TARGET/package.json"; then
     echo "  ⚠  Kein \"lint\"-Script in package.json — verify.sh/CI/QA linten sonst NICHT (z. B. ESLint einrichten)."
   fi
+  hint_dependabot "npm" "npm"
 elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   if [ -e "$CI_DEST" ]; then
     echo "  ℹ  Python-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
@@ -343,6 +527,7 @@ elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   if ! grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
     echo "  ⚠  ruff nicht in den Dependencies — verify.sh/CI/QA linten sonst NICHT (ruff als Dev-Dependency ergänzen)."
   fi
+  hint_dependabot "pip|uv" "pip-/uv"
 else
   echo "  ℹ  Stack nicht erkannt -> passende ci-*.yml.example nach ci.yml umbenennen und anpassen."
   echo "     Anderer Stack (Go, Rust, …)? Eigenes Gate als .claude/hooks/verify-project.sh hinterlegen."

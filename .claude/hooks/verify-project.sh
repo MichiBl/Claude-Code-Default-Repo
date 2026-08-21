@@ -45,7 +45,8 @@ if command -v shellcheck >/dev/null 2>&1; then
   # -s bash, weil die Skripte bash-Features nutzen (der Shebang ist
   # /usr/bin/env bash, den shellcheck bei .sh nicht immer sicher auflöst).
   if ! RESULT="$(shellcheck -s bash -S warning \
-      .claude/hooks/*.sh .githooks/pre-commit setup.sh setup-github.sh \
+      .claude/hooks/*.sh .githooks/pre-commit .githooks/pre-push \
+      setup.sh setup-github.sh \
       tests/hook-selftest.sh 2>&1)"; then
     FAILED="${FAILED}shellcheck; "
     OUT="${OUT}

@@ -108,7 +108,8 @@ if { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && printf '%s\n' "$CHAN
     PY="python3"; command -v "$PY" >/dev/null 2>&1 || PY="python"
     have_module() { "$PY" -m "$1" --version >/dev/null 2>&1; }
     if have_module ruff; then
-      run_gate "ruff check" "$PY" -m ruff check .
+      run_gate "ruff check"        "$PY" -m ruff check .
+      run_gate "ruff format check" "$PY" -m ruff format --check .
     else
       echo "verify: ruff nicht installiert — Lint übersprungen (pip install ruff)." >&2
     fi
