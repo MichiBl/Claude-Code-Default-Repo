@@ -95,9 +95,12 @@ und committen.
 einem lokalen Klon beider Repos. Über mehrere Projekte hinweg passiert das
 erfahrungsgemäß nicht, und dann laufen die Kopien wieder auseinander. Deshalb
 liegt im Zielprojekt `.github/workflows/core-drift.yml.example`: einmal nach
-`core-drift.yml` umbenennen, und der Workflow klont wöchentlich das Template,
-fährt `setup.sh --diff .` und wird bei Kern-Verfall rot. Rot heißt dort nicht
-„kaputt", sondern „Kern veraltet" — beheben mit `./setup.sh --update .`.
+`core-drift.yml` umbenennen, und der Workflow klont wöchentlich das Template
+**am letzten Release-Tag**, fährt `setup.sh --diff .` und wird bei
+Kern-Verfall rot. Rot heißt dort nicht „kaputt", sondern „Kern veraltet" —
+beheben mit `./setup.sh --update .`. Die Job-Zusammenfassung zeigt Template-
+vs. Projekt-Version und ob der Default-Branch des Templates dem Tag
+vorausläuft (dann ist dort ein Release überfällig).
 
 **Auch die Gegenrichtung wird geprüft.** `--diff` und `--update` melden
 Dateien in den Kern-Verzeichnissen des Ziels, die das Template nicht kennt —
@@ -129,6 +132,20 @@ Warum die Trennung: Ohne sie meldet `--diff` in jedem Projekt Abweichungen in
 `CLAUDE.md` & Co. — Rauschen, in dem echter Verfall des Werkzeugkastens
 untergeht. Genau so laufen Kopien über Monate auseinander, ohne dass es
 jemandem auffällt.
+
+### Versionierung
+
+Das Template trägt seine Version in `VERSION` (SemVer) und dokumentiert
+Änderungen in `CHANGELOG.md`. **Ein Release = Versions-Bump in `VERSION` +
+CHANGELOG-Eintrag + Git-Tag** (`git tag vX.Y.Z && git push origin vX.Y.Z`).
+Ohne Tag sehen Zielprojekte über `core-drift.yml` keine Updates — der
+Workflow vergleicht bewusst gegen den letzten veröffentlichten Stand.
+
+`setup.sh` stempelt beim Kopieren (falls noch nicht vorhanden) und bei
+`--update` (immer) die ausgelieferte Version als `.claude/TEMPLATE_VERSION`
+ins Zielprojekt. `--diff` meldet Template- und Projekt-Version in einer
+Zeile, vergleicht sie aber nicht inhaltlich — die Wahrheit über Verfall
+bleibt der Datei-Vergleich der Kern-Dateien.
 
 ### Gesundheitscheck: --doctor
 

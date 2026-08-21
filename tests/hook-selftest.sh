@@ -510,6 +510,29 @@ check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
 bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?
 check "nach --update ist der Kern wieder deckungsgleich" 0 "$rc"
 
+# Versionierung: setup.sh stempelt die ausgelieferte Template-Version ins
+# Ziel; --diff meldet beide Versionen, wertet den Stempel aber nicht als
+# Verfalls-Kriterium (die Wahrheit bleibt der Datei-Vergleich).
+rc=0; grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' "$ROOT/VERSION" || rc=1
+check "VERSION ist SemVer" 0 "$rc"
+rc=0; grep -qF "$(cat "$ROOT/VERSION")" "$ROOT/CHANGELOG.md" || rc=1
+check "CHANGELOG hat einen Eintrag zur aktuellen VERSION" 0 "$rc"
+
+d="$TMP/sync-version"; mkdir -p "$d"
+run_setup "$d"
+rc=0; [ "$(cat "$d/.claude/TEMPLATE_VERSION" 2>/dev/null)" = "$(cat "$ROOT/VERSION")" ] || rc=1
+check "Kopieren stempelt .claude/TEMPLATE_VERSION" 0 "$rc"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "Versionsstempel ist für --diff kein Verfall (Exit 0)" 0 "$rc"
+check_contains "--diff meldet Template- und Projekt-Version" "Version: Template" "$out"
+rm -f "$d/.claude/TEMPLATE_VERSION"
+out="$(bash "$ROOT/setup.sh" --diff "$d" 2>&1)"; rc=$?
+check "fehlender Versionsstempel ist kein Verfall (Exit 0)" 0 "$rc"
+check_contains "--diff benennt den fehlenden Stempel" "nie gestempelt" "$out"
+bash "$ROOT/setup.sh" --update "$d" >/dev/null 2>&1
+rc=0; [ "$(cat "$d/.claude/TEMPLATE_VERSION" 2>/dev/null)" = "$(cat "$ROOT/VERSION")" ] || rc=1
+check "--update stempelt die Version nach" 0 "$rc"
+
 # Verwaiste Kern-Dateien: die Gegenrichtung des Vergleichs. Eine Datei, die
 # nur im Ziel liegt, wird gemeldet (sie könnte verdrahteter Alt-Code sein),
 # zählt aber nicht als Verfall und wird nie gelöscht.

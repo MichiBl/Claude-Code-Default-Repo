@@ -29,6 +29,7 @@ sind Anweisungen (Markdown) und Shellskripte.
 setup.sh                    # kopiert/vergleicht/aktualisiert/prüft (--doctor) den Werkzeugkasten
 setup-github.sh             # serverseitige GitHub-Schalter (Rulesets, Push Protection)
 CLAUDE.md                   # DIESE Datei — Kontext des Template-Repos
+VERSION / CHANGELOG.md      # Template-Version (SemVer); Release = Bump + Eintrag + Git-Tag
 templates/CLAUDE.md         # die auszuliefernde Vorlage mit <PLATZHALTERN>
 tests/hook-selftest.sh      # das verbindliche Gate (siehe unten)
 .claude/hooks/              # die Schutz-Hooks — das eigentliche Produkt
@@ -72,6 +73,10 @@ zu — `is_core()` in `setup.sh` ist die maßgebliche Definition.
 gitleaks-Backstop ist stack-unabhängig — als PROJEKT-Datei würde die
 wichtigste Schutzschicht still veralten. `core-drift.yml.example` bleibt
 PROJEKT, weil Zielprojekte es durch Umbenennen aktivieren.
+
+Sonderfall `.claude/TEMPLATE_VERSION`: existiert nur in Zielprojekten
+(Versionsstempel von `setup.sh`), wird von `--diff` gemeldet, aber nie
+inhaltlich verglichen — Verfall misst allein der Datei-Vergleich.
 
 Dazu eine dritte, ungeschriebene Sorte: **template-eigene Dateien**, die in
 keinem Zielprojekt etwas zu suchen haben. Aktuell

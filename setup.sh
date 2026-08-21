@@ -382,6 +382,18 @@ case "$MODE" in
 esac
 echo
 
+# Versionsstempel: welche Template-Version zuletzt in dieses Ziel kam.
+# .claude/TEMPLATE_VERSION ist KERN im Geiste, wird aber nie inhaltlich
+# verglichen — --diff MELDET die Versionen nur (der Inhaltsvergleich der
+# Kern-Dateien bleibt die eigentliche Wahrheit; ein Versionsvergleich obendrauf
+# würde denselben Verfall doppelt melden). Die Datei existiert nur in
+# Zielprojekten; das Template selbst trägt seine Version in VERSION.
+TEMPLATE_VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo "unbekannt")"
+stamp_version() {
+  mkdir -p "$TARGET/.claude"
+  printf '%s\n' "$TEMPLATE_VERSION" > "$TARGET/.claude/TEMPLATE_VERSION"
+}
+
 process_tree ".claude"
 process_tree ".githooks"
 process_tree ".github"
@@ -394,6 +406,7 @@ process_file "docs/requirements-status.md" "docs/requirements-status.md"
 if [ "$MODE" = "diff" ]; then
   echo
   echo "Ergebnis: $identical identisch, $differs abweichend, $missing fehlend."
+  echo "Version: Template $TEMPLATE_VERSION — Projekt $(cat "$TARGET/.claude/TEMPLATE_VERSION" 2>/dev/null || echo "unbekannt (nie gestempelt)")"
   git_hooks_path 1 || hooks_inert=1
   # Verwaiste zählen bewusst NICHT als Verfall (Exit bleibt wie bisher):
   # sie können projekteigen sein, und ein roter Drift-Check dafür wäre Rauschen.
@@ -414,6 +427,10 @@ fi
 
 if [ "$MODE" = "update" ]; then
   chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.githooks/pre-push" 2>/dev/null || true
+  # --update bringt den Kern auf den Template-Stand — der Stempel wird also
+  # immer nachgezogen (auch wenn 0 Dateien zu heben waren: identisch heißt
+  # ebenfalls "auf diesem Stand").
+  stamp_version
   echo
   echo "Fertig: $updated Kern-Datei(en) aktualisiert, $identical bereits aktuell."
   echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
@@ -429,6 +446,11 @@ fi
 
 # Hooks ausführbar machen.
 chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.githooks/pre-push" 2>/dev/null || true
+
+# Kopier-Modus überschreibt nie — der Stempel folgt derselben Regel und wird
+# nur gesetzt, wenn er fehlt (sonst behauptete er einen Stand, den die
+# übersprungenen Dateien nicht haben müssen).
+[ -f "$TARGET/.claude/TEMPLATE_VERSION" ] || stamp_version
 
 # Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist.
 if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
