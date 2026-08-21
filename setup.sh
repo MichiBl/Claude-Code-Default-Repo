@@ -266,7 +266,7 @@ if [ "$MODE" = "diff" ]; then
 fi
 
 if [ "$MODE" = "update" ]; then
-  chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" 2>/dev/null || true
+  chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.githooks/pre-push" 2>/dev/null || true
   echo
   echo "Fertig: $updated Kern-Datei(en) aktualisiert, $identical bereits aktuell."
   echo "PROJEKT-Dateien (CLAUDE.md, settings.json, ci.yml, …) blieben unangetastet."
@@ -280,7 +280,7 @@ if [ "$MODE" = "update" ]; then
 fi
 
 # Hooks ausführbar machen.
-chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" 2>/dev/null || true
+chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.githooks/pre-push" 2>/dev/null || true
 
 # Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist.
 if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then

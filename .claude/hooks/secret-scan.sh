@@ -16,9 +16,12 @@
 #   (a) kein git commit/push im Befehl -> exit 0
 #   (b) gitleaks nicht installiert    -> exit 0 mit Hinweis (CI ist Backstop)
 #
-# Bekannte Lücken (Best-Effort, die Backstops tragen): git-Aliasse (`git ci`),
+# Bekannte Lücken DIESER Claude-Schicht (Best-Effort): git-Aliasse (`git ci`),
 # Commits aus Skripten/eval heraus, und der Push-Zweig scannt upstream..HEAD —
-# `git push origin <anderer-branch>` trifft also den falschen Bereich.
+# `git push origin <anderer-branch>` trifft also den falschen Bereich. Alle
+# drei fängt inzwischen die Git-Schicht (.githooks/pre-commit + pre-push):
+# Git ruft die selbst auf, egal wie der commit/push ausgelöst wurde, und
+# pre-push scannt die exakten Ranges aus dem Push-Protokoll.
 #
 # Ein Secret, das im Remote landet, gilt als kompromittiert — rotieren,
 # nicht nur den Commit entfernen.

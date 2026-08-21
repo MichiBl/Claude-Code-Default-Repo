@@ -144,6 +144,7 @@ docs/requirements-status.md      # zentrale Roadmap: Punkte mit Status + Akzepta
     └── protect-secrets.sh       # PreToolUse-Hook: blockt Edit/Write auf .env-/Secret-Dateien
 .githooks/
 ├── pre-commit                   # gitleaks-Scan bei jedem Commit (auch ohne Claude)
+├── pre-push                     # gitleaks-Scan über die Push-Ranges (fängt --no-verify-Commits)
 └── README.md                    # Aktivierung + Schichtenübersicht für dieses Verzeichnis
 .gitignore                       # .env, Deps, Build-Artefakte, settings.local.json
 .gitleaks.toml                   # Default-Ruleset + Platzhalter-Allowlist
@@ -221,6 +222,7 @@ werden direkt gefixt, ganz ohne Skill.
 | Claude-Hook `protect-secrets.sh` | blockt Schreibzugriffe (Edit/Write) von Claude auf dieselben Dateien — Vorlagen wie `.env.example` bleiben editierbar |
 | Claude-Hook `secret-scan.sh` | bevor Claude committet/pusht |
 | Git-Hook `.githooks/pre-commit` | bei jedem lokalen Commit (auch ohne Claude) |
+| Git-Hook `.githooks/pre-push` | bei jedem lokalen Push — scannt die exakten Commit-Ranges des Pushs; fängt auch git-Aliasse, Skript-Pushes und `--no-verify`-Commits |
 | CI `secret-scan.yml` | auf jedem PR/Push — nicht überspringbar |
 | GitHub Push Protection | serverseitig — `setup-github.sh` aktiviert sie, soweit Plan und Rechte es hergeben (sonst manuell) |
 
@@ -228,8 +230,8 @@ werden direkt gefixt, ganz ohne Skill.
 
 Die Hooks sind das Produkt dieses Repos — und Shellskripte gehen leise kaputt.
 `tests/hook-selftest.sh` prüft deshalb die Exit-Code-Verträge von
-`protect-secrets.sh`, `verify.sh`, `secret-scan.sh`, `session-start.sh` und
-`.githooks/pre-commit` gegen Wegwerf-Fixtures, dazu die CI-Aktivierung von
+`protect-secrets.sh`, `verify.sh`, `secret-scan.sh`, `session-start.sh`,
+`.githooks/pre-commit` und `.githooks/pre-push` gegen Wegwerf-Fixtures, dazu die CI-Aktivierung von
 `setup.sh` (Node/uv/pip, nie überschreiben) und per Struktur-Check, dass die
 tragenden Regeln der Agenten-Dateien (Verdict-Schema, SRP-Prüfpunkt,
 Pipeline-Gates) nicht versehentlich wegeditiert wurden — das *Verhalten* der

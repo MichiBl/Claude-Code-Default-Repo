@@ -7,6 +7,7 @@
 #   * verify.sh           -> Stop-Gate: rot blockt (exit 2), grün/leer erlaubt
 #   * secret-scan.sh      -> blockt commit mit gestagtem Secret (exit 2)
 #   * .githooks/pre-commit-> blockt gestagtes Secret lokal (exit 1)
+#   * .githooks/pre-push  -> blockt Secrets in den Push-Ranges (exit 1)
 #   * session-start.sh    -> installiert Deps, blockiert die Session NIE (exit 0)
 #   * setup.sh            -> aktiviert ci.yml nach Stack, überschreibt nie
 #   * Agenten-Regeln      -> Struktur-Check: tragende Abschnitte/Regeln der
@@ -235,9 +236,70 @@ if command -v gitleaks >/dev/null 2>&1; then
   check "pre-commit blockt gestagtes Secret" 1 "$rc"
   rc=0; (cd "$OK" && bash "$ROOT/.githooks/pre-commit") >/dev/null 2>&1 || rc=$?
   check "pre-commit lässt sauberen Commit durch" 0 "$rc"
+
+  # pre-push bekommt von Git die Push-Ranges per stdin (Format:
+  # "<local_ref> <local_sha> <remote_ref> <remote_sha>"). Die Fixtures
+  # simulieren genau diese Zeilen — ein echter Remote ist dafür nicht nötig.
+  echo "== .githooks/pre-push =="
+  PP="$ROOT/.githooks/pre-push"
+  Z40="0000000000000000000000000000000000000000"
+
+  # Historie: 1. Commit sauber, 2. Commit enthält das Fake-Secret. Damit lässt
+  # sich derselbe Stand als "alles neu" (remote_sha = 0…0) und als
+  # Delta-Push (remote_sha = 1. Commit) prüfen.
+  PUSHFIX="$(mkfix pushhot)"
+  echo "nur text" > "$PUSHFIX/notes.txt"
+  git -C "$PUSHFIX" add notes.txt
+  git_t -C "$PUSHFIX" commit -q -m "sauber"
+  BASE_SHA="$(git -C "$PUSHFIX" rev-parse HEAD)"
+  printf 'aws_access_key_id = %s\n' "$AWS_FAKE" > "$PUSHFIX/config.txt"
+  git -C "$PUSHFIX" add config.txt
+  git_t -C "$PUSHFIX" commit -q -m "leak"
+  HEAD_SHA="$(git -C "$PUSHFIX" rev-parse HEAD)"
+
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$HEAD_SHA" "$Z40" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push blockt Secret beim Erst-Push (neuer Branch)" 1 "$rc"
+
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$HEAD_SHA" "$BASE_SHA" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push blockt Secret im Delta-Range" 1 "$rc"
+
+  # Range remote==local: der Remote hat schon alles — auch mit Secret in der
+  # Historie darf der (leere) Push nicht blockiert werden.
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$HEAD_SHA" "$HEAD_SHA" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push lässt leeren Range durch (Remote aktuell)" 0 "$rc"
+
+  # Branch-Löschung (local_sha = 0…0): es geht nichts zum Remote.
+  rc=0
+  printf '(delete) %s refs/heads/alt %s\n' "$Z40" "$HEAD_SHA" \
+    | (cd "$PUSHFIX" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push lässt Branch-Löschung durch" 0 "$rc"
+
+  PUSHOK="$(mkfix pushok)"
+  echo "nur text" > "$PUSHOK/notes.txt"
+  git -C "$PUSHOK" add notes.txt
+  git_t -C "$PUSHOK" commit -q -m "sauber"
+  OK_SHA="$(git -C "$PUSHOK" rev-parse HEAD)"
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$OK_SHA" "$Z40" \
+    | (cd "$PUSHOK" && bash "$PP" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push lässt sauberen Push durch" 0 "$rc"
 else
   skip "gitleaks nicht installiert — Scan-Tests übersprungen (CI führt sie aus)."
 fi
+
+# Ohne gitleaks muss pre-push durchwinken UND den tragenden Backstop nennen —
+# derselbe Vertrag wie bei pre-commit (Graceful Degradation, nie still).
+rc=0
+out="$(printf 'refs/heads/main 1111111111111111111111111111111111111111 refs/heads/main 0000000000000000000000000000000000000000\n' \
+  | env -i PATH="$NOPY_BIN" bash "$ROOT/.githooks/pre-push" origin dummy-url 2>&1)" || rc=$?
+check "pre-push ohne gitleaks winkt durch (exit 0)" 0 "$rc"
+check_contains "pre-push ohne gitleaks nennt den CI-Backstop" "CI erzwingt ihn trotzdem" "$out"
 
 # --- session-start.sh ------------------------------------------------------------
 echo "== session-start.sh =="
@@ -410,6 +472,8 @@ rc=0; cmp -s "$ROOT/.claude/hooks/verify.sh" "$d/.claude/hooks/verify.sh" || rc=
 check "--update ergänzt fehlende Kern-Datei" 0 "$rc"
 rc=0; [ -x "$d/.claude/hooks/verify.sh" ] || rc=1
 check "--update macht Hooks wieder ausführbar" 0 "$rc"
+rc=0; [ -x "$d/.githooks/pre-push" ] || rc=1
+check "--update macht auch pre-push ausführbar" 0 "$rc"
 rc=0; grep -qx "eigener Inhalt" "$d/CLAUDE.md" || rc=1
 check "--update lässt PROJEKT-Datei unangetastet" 0 "$rc"
 bash "$ROOT/setup.sh" --diff "$d" >/dev/null 2>&1; rc=$?

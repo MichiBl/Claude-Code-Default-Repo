@@ -34,7 +34,7 @@ tests/hook-selftest.sh      # das verbindliche Gate (siehe unten)
 .claude/hooks/              # die Schutz-Hooks — das eigentliche Produkt
 .claude/agents/             # Agenten der Feature-Pipeline
 .claude/skills/             # /feature, /fix, /bootstrap
-.githooks/pre-commit        # gitleaks bei jedem Commit, auch ohne Claude
+.githooks/                  # gitleaks bei jedem Commit (pre-commit) und Push (pre-push), auch ohne Claude
 .github/workflows/          # *.yml aktiv; *.yml.example sind Vorlagen für Zielprojekte
 docs/requirements-status.md # Roadmap-Vorlage (wird mitkopiert)
 ```
@@ -150,7 +150,7 @@ Diese Befehle sind die verbindlichen Gates — CI, der Stop-Hook
 # install    — keiner nötig; optional: brew install gitleaks shellcheck
 ./tests/hook-selftest.sh                     # test (das Gate)
 shellcheck -s bash -S warning \
-  .claude/hooks/*.sh .githooks/pre-commit \
+  .claude/hooks/*.sh .githooks/pre-commit .githooks/pre-push \
   setup.sh setup-github.sh tests/hook-selftest.sh    # lint
 ./setup.sh --diff <zielprojekt>              # Kern-Verfall prüfen (Exit 1 = Verfall)
 ```
@@ -172,8 +172,11 @@ schützt, ist die Secret-Hygiene der Projekte, in die es kopiert wird:
    Schreibzugriffe darauf (beides Best-Effort — indirekte Wege wie
    Shell-Redirects sind nicht abgedeckt; die harten Garantien liefern 1–4).
 1. `.claude/hooks/secret-scan.sh` blockt `git commit`/`push` mit Secrets.
-2. `.githooks/pre-commit` (gitleaks) blockt lokal jeden Commit — braucht
-   `core.hooksPath=.githooks`, das `session-start.sh` und `--update` setzen.
+2. `.githooks/pre-commit` und `.githooks/pre-push` (gitleaks) blocken lokal
+   jeden Commit bzw. Push — pre-push scannt die exakten Ranges aus dem
+   Push-Protokoll und fängt so auch `--no-verify`-Commits, Aliasse und
+   Skript-Pushes. Beide brauchen `core.hooksPath=.githooks`, das
+   `session-start.sh` und `--update` setzen.
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.
 4. GitHub Push Protection (per `setup-github.sh` aktiviert).
 

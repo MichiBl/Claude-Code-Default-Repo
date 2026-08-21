@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# Pre-push secret scan — scannt genau die Commits, die DIESER Push zum Remote
+# tragen würde, bevor sie es erreichen. Git übergibt die Ranges per stdin
+# (je Zeile: <local_ref> <local_sha> <remote_ref> <remote_sha>), der Hook muss
+# also nichts raten.
+#
+# Warum zusätzlich zu pre-commit: pre-commit sieht nur die gestagten Änderungen
+# des einen Commits. Ein Secret, das per `git commit --no-verify`, aus einem
+# Skript oder vor Aktivierung der Hooks in die Historie kam, ginge beim Push
+# trotzdem raus. Und anders als .claude/hooks/secret-scan.sh (Best-Effort auf
+# der Claude-Schicht) ruft Git diesen Hook selbst auf — git-Aliasse, Pushes aus
+# Skripten und `git push origin <branch>` mit abweichendem Upstream laufen alle
+# hier durch.
+#
+# Exit-Code-Vertrag (pre-push): 0 = Push erlauben, 1 = Push blockieren.
+# gitleaks fehlt -> Hinweis + exit 0 (CI ist Backstop), wie bei pre-commit.
+# Umgehbar mit `git push --no-verify` — die nicht überspringbare Schicht
+# bleibt die CI (secret-scan.yml) bzw. GitHub Push Protection.
+set -uo pipefail
+
+ZERO="0000000000000000000000000000000000000000"
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "ℹ gitleaks nicht installiert — pre-push-Secret-Scan übersprungen (CI erzwingt ihn trotzdem)."
+  echo "  Installation: https://github.com/gitleaks/gitleaks#installing  (z. B. 'brew install gitleaks')"
+  exit 0
+fi
+
+# (Kein leeres Array: macOS-Bash 3.2 + set -u vertragen keine leere
+# Array-Expansion.)
+CONFIG_OPT=""
+[ -f .gitleaks.toml ] && CONFIG_OPT="--config=.gitleaks.toml"
+
+STATUS=0
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  # Branch-Löschung: es geht nichts zum Remote, nichts zu scannen.
+  [ "$local_sha" = "$ZERO" ] && continue
+
+  if [ "$remote_sha" = "$ZERO" ]; then
+    # Neuer Branch beim Remote: alles scannen, was noch auf keinem bekannten
+    # Remote-Branch liegt (statt der gesamten Historie — die wurde beim
+    # ersten Push bereits geprüft).
+    reachable="$(git rev-list -n 1 "$local_sha" --not --remotes -- 2>/dev/null || true)"
+    LOG_OPTS="$local_sha --not --remotes"
+  else
+    reachable="$(git rev-list -n 1 "$remote_sha..$local_sha" -- 2>/dev/null || true)"
+    LOG_OPTS="$remote_sha..$local_sha"
+  fi
+  # Leerer Range (Remote hat schon alles): nichts zu tun.
+  [ -z "$reachable" ] && continue
+
+  if ! gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} --log-opts "$LOG_OPTS" .; then
+    STATUS=1
+  fi
+done
+
+if [ "$STATUS" -ne 0 ]; then
+  echo ""
+  echo "✗ gitleaks hat ein potenzielles Secret in den zu pushenden Commits gefunden — Push blockiert."
+  echo "  Das Secret steckt bereits in der lokalen Historie: Commit entfernen/amenden"
+  echo "  UND das Secret rotieren — es lokal zu löschen macht es nicht ungeschehen."
+  echo "  Falsch-positiv? Allowlist-Eintrag in .gitleaks.toml ergänzen."
+  echo "  Umgehen (NICHT empfohlen): git push --no-verify"
+fi
+exit "$STATUS"

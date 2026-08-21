@@ -1,7 +1,8 @@
 name: Hook Selftest
 
 # Testet die Schutzmechanismen des Templates (protect-secrets.sh, verify.sh,
-# secret-scan.sh, .githooks/pre-commit) gegen ihre Exit-Code-Verträge —
+# secret-scan.sh, .githooks/pre-commit, .githooks/pre-push) gegen ihre
+# Exit-Code-Verträge —
 # siehe tests/hook-selftest.sh.
 #
 # Läuft NUR in diesem Template-Repo (Repo-Guard unten): Zielprojekte testen
@@ -68,7 +69,7 @@ jobs:
           shellcheck --version
           shellcheck -s bash -S warning \
             .claude/hooks/*.sh \
-            .githooks/pre-commit \
+            .githooks/pre-commit .githooks/pre-push \
             setup.sh setup-github.sh \
             tests/hook-selftest.sh
 

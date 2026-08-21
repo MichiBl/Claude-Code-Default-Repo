@@ -124,7 +124,8 @@ Secret-Schutz (Defense in Depth, generisch eingerichtet):
    Best-Effort — indirekte Wege sind nicht vollständig abgedeckt; die harten
    Garantien liefern die Schichten 1–4).
 1. Claude-Hook `.claude/hooks/secret-scan.sh` blockt commit/push mit Secrets.
-2. Git-Hook `.githooks/pre-commit` (gitleaks) blockt lokal jeden Commit.
+2. Git-Hooks `.githooks/pre-commit` und `pre-push` (gitleaks) blocken lokal
+   jeden Commit bzw. Push mit Secrets.
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.
 4. GitHub Push Protection (im Repo aktivieren!) blockt serverseitig.
 Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar.

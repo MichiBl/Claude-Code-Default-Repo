@@ -1,7 +1,13 @@
 # Git Hooks
 
-Versionierte Git-Hooks für dieses Repo. Aktuell: ein **Pre-Commit-Secret-Scan**
-(gitleaks), der das Committen von API-Keys, Tokens und Private Keys blockt.
+Versionierte Git-Hooks für dieses Repo. Aktuell zwei gitleaks-Scans:
+
+* **pre-commit** — blockt das Committen von API-Keys, Tokens und Private Keys
+  (scannt die gestagten Änderungen).
+* **pre-push** — blockt das Pushen von Secrets, die es trotzdem in die lokale
+  Historie geschafft haben (`--no-verify`, Commits vor Hook-Aktivierung,
+  Skripte). Scannt exakt die Commit-Ranges, die Git dem Hook per stdin
+  übergibt — also genau das, was der Remote noch nicht hat.
 
 ## Aktivierung
 
@@ -24,6 +30,7 @@ Node-Projekte können das automatisieren, indem sie in `package.json` ergänzen:
 | **Claude-Hook** (`.claude/hooks/protect-secrets.sh`) | in Claude-Code-Sessions | Schreibzugriffe (Edit/Write) auf dieselben Dateien — `.env.example` bleibt editierbar |
 | **Claude-Hook** (`.claude/hooks/secret-scan.sh`) | in Claude-Code-Sessions | bevor Claude committet/pusht |
 | **Pre-Commit-Hook** (dieses Verzeichnis) | lokal, jeder Commit | bevor der Commit entsteht — schnellste Linie, mit `--no-verify` umgehbar |
+| **Pre-Push-Hook** (dieses Verzeichnis) | lokal, jeder Push | bevor Commits das Remote erreichen — fängt auch, was am pre-commit vorbeikam; mit `--no-verify` umgehbar |
 | **`Secret Scan`-Workflow** | CI, jeder PR/Push | vor dem Merge — nicht überspringbares Gate |
 | **GitHub Push Protection** | serverseitig | bevor der Push GitHub erreicht — stärkste Linie, siehe unten |
 
