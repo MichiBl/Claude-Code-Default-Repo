@@ -756,6 +756,9 @@ marker .claude/agents/qa-engineer.md "qa-plan.md"
 marker .claude/agents/qa-engineer.md "Manuelle Verifikation (MC)"
 marker .claude/agents/qa-engineer.md "Warum manuell"
 marker .claude/skills/feature/SKILL.md "GATE 1"
+# Konvergenz-Bremse: ohne das Limit kreist die Pipeline bei einem Review,
+# das nicht konvergiert, unbegrenzt zwischen Fix und Re-Review.
+marker .claude/skills/feature/SKILL.md "Maximal 3 Review-Zyklen"
 marker .claude/skills/feature/SKILL.md "GATE 2"
 marker .claude/skills/feature/SKILL.md "Selbst prüfen, bevor der PR aus dem Draft geht"
 marker templates/CLAUDE.md "eine Kernverantwortung"
