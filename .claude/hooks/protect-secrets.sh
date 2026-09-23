@@ -87,6 +87,18 @@ case "$FILE" in
   secrets/*|*/secrets/*) BLOCKED=1 ;;
 esac
 
+# Die gitleaks-Allowlist entscheidet, was die Scan-Schichten durchlassen. Darf
+# Claude sie ändern, kann es einen Fund "als Falsch-Positiv" freigeben, und
+# pre-commit, pre-push und secret-scan.sh lassen das Secret bis ins Remote
+# durch. Allowlist-Einträge sind deshalb Sache des Menschen.
+if [ "$BASE" = ".gitleaks.toml" ]; then
+  {
+    echo "🔒 protect-secrets: '$FILE' ist die Allowlist der Secret-Scans und wird nicht von Claude bearbeitet."
+    echo "Falsch-Positiv? Dem Nutzer Eintrag und Begründung vorschlagen — er trägt ihn selbst ein."
+  } >&2
+  exit 2
+fi
+
 if [ -n "$BLOCKED" ]; then
   {
     echo "🔒 protect-secrets: '$FILE' kann Credentials enthalten und wird nicht von Claude bearbeitet."

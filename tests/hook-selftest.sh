@@ -136,6 +136,9 @@ check "service-account*.json wird geblockt" 2 "$(hook_exit "$PS" "$(payload_writ
 check "SSH-Key (id_rsa) wird geblockt"     2 "$(hook_exit "$PS" "$(payload_write /proj/id_rsa)")"
 check "normale Quelldatei bleibt erlaubt"  0 "$(hook_exit "$PS" "$(payload_write /proj/src/app.ts)")"
 check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
+# Die Allowlist steuert, was alle gitleaks-Schichten durchlassen — Claude
+# könnte sonst einen Fund selbst "als Falsch-Positiv" freigeben.
+check ".gitleaks.toml wird geblockt"       2 "$(hook_exit "$PS" "$(payload_write /proj/.gitleaks.toml)")"
 
 # Ohne Interpreter muss der Hook weiter blocken UND es sagen — vorher fiel er
 # hier lautlos mit exit 0 durch.

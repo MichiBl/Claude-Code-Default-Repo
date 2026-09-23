@@ -12,6 +12,8 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   Vorher konnte ein PR sein eigenes Secret per Allowlist-Eintrag freigeben.
 - `core-drift.yml.example`: `persist-credentials: false` — der Job führt
   `setup.sh` aus dem Template-Repo aus, das den Token sonst lesen könnte.
+- `protect-secrets.sh` blockt Schreibzugriffe von Claude auf `.gitleaks.toml`:
+  sonst konnte Claude einen Fund selbst als Falsch-Positiv freigeben.
 
 ### Fixed
 

@@ -131,7 +131,7 @@ if [ "$STATUS" -ne 0 ]; then
     echo "Optionen:"
     echo "  - Echtes Secret? Entfernen und über .env / Umgebungsvariable laden."
     echo "  - Bereits committet? Commit amenden/entfernen UND das Secret rotieren."
-    echo "  - Falsch-positiv? Allowlist-Eintrag in .gitleaks.toml ergänzen."
+    echo "  - Falsch-positiv? Dem Nutzer einen .gitleaks.toml-Eintrag vorschlagen (Claude darf die Datei nicht bearbeiten)."
   } >&2
   exit 2
 fi

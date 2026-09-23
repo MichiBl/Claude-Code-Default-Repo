@@ -307,7 +307,8 @@ führt ihn auf jedem PR aus — per Repo-Guard **nur in diesem Template-Repo**;
 
 Die Scan-Schichten nutzen gitleaks bzw. GitHubs eigenen Scanner; ein
 Binary, keine Sprachabhängigkeit. Falsch-Positive kommen mit
-Begründungskommentar in die `.gitleaks.toml`-Allowlist. Auf PRs prüft die
+Begründungskommentar in die `.gitleaks.toml`-Allowlist — eingetragen vom
+Menschen, `protect-secrets.sh` blockt Claude dort. Auf PRs prüft die
 CI mit der Allowlist des Base-Branches, nicht der des PRs — sonst könnte ein
 PR sein eigenes Secret freigeben; eine Allowlist-Änderung kommt deshalb als
 eigener PR vor dem eigentlichen. Die deny-Regeln
