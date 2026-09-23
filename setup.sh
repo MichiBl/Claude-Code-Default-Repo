@@ -452,16 +452,12 @@ chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.g
 # übersprungenen Dateien nicht haben müssen).
 [ -f "$TARGET/.claude/TEMPLATE_VERSION" ] || stamp_version
 
-# Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist.
-if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git -C "$TARGET" config core.hooksPath .githooks
-  echo
-  echo "  ✓  git core.hooksPath -> .githooks (Pre-Commit-Secret-Scan aktiv)"
-else
-  echo
-  echo "  ⚠  Kein Git-Repo — nach 'git init' einmal ausführen:"
-  echo "     git -C \"$TARGET\" config core.hooksPath .githooks"
-fi
+# Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist. Über git_hooks_path
+# wie bei --update: früher setzte der Kopier-Modus core.hooksPath hart und
+# überschrieb damit eine bestehende Verdrahtung (z. B. .husky) — die
+# Projekt-Hooks liefen danach still nicht mehr.
+echo
+git_hooks_path || true
 
 # CI-Aktivierung: bei erkanntem Stack wird die passende Vorlage direkt als
 # ci.yml geschrieben (statt nur auf das Umbenennen hinzuweisen) — der Fehlmodus

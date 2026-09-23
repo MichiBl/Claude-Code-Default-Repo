@@ -11,6 +11,9 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 - `secret-scan.sh`: scannt bei `git commit` auch nicht gestagte Änderungen an
   getrackten Dateien — `git commit -a` und Pfad-Commits kamen mit einem
   Secret an der Claude-Schicht vorbei.
+- `setup.sh` (Kopier-Modus): überschreibt eine bestehende `core.hooksPath`
+  (z. B. `.husky`) nicht mehr, sondern meldet sie — wie `--update` und
+  `session-start.sh`.
 
 ## [1.0.0] — 2026-08-21
 

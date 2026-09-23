@@ -618,6 +618,15 @@ rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
 
+# Dasselbe im Kopier-Modus: der setzte core.hooksPath früher hart und legte
+# damit z. B. eine bestehende .husky-Verdrahtung still.
+d="$(mkfix copy-hookspath)"
+git -C "$d" config core.hooksPath .myhooks
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
+check "Kopier-Modus überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
+check_contains "Kopier-Modus meldet die abweichende hooksPath" ".myhooks" "$out"
+
 # --- setup.sh: --doctor --------------------------------------------------------------
 # Der Doctor beantwortet "ist dieses Projekt wirklich geschützt?" in einem
 # Lauf. Exit 1, sobald eine Schicht fehlt; jede Meldung trägt den
