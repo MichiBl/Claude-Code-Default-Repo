@@ -257,7 +257,7 @@ process_file() {
 }
 
 # Vorlagen-Ordner rekursiv verarbeiten (gleicher Name im Zielprojekt).
-# Zwei template-eigene Dateien bleiben bewusst hier:
+# Drei template-eigene Dateien bleiben bewusst hier:
 #   * hook-selftest.yml   — CI, die die Hooks DIESES Repos testet; im
 #                           Zielprojekt toter Ballast.
 #   * verify-project.sh   — Gate DIESES Repos; im Zielprojekt würde es die
