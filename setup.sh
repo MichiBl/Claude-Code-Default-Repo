@@ -257,7 +257,7 @@ process_file() {
 }
 
 # Vorlagen-Ordner rekursiv verarbeiten (gleicher Name im Zielprojekt).
-# Zwei template-eigene Dateien bleiben bewusst hier:
+# Drei template-eigene Dateien bleiben bewusst hier:
 #   * hook-selftest.yml   — CI, die die Hooks DIESES Repos testet; im
 #                           Zielprojekt toter Ballast.
 #   * verify-project.sh   — Gate DIESES Repos; im Zielprojekt würde es die
@@ -359,7 +359,10 @@ if [ "$MODE" = "doctor" ]; then
   fi
 
   # 7. Kern deckungsgleich — dieselbe Prüfung wie --diff, nur als eine Zeile.
-  if "$0" --diff "$TARGET" >/dev/null 2>&1; then
+  # Über "$BASH" statt "$0": ohne Ausführungsbit (ZIP-Download, `bash
+  # setup.sh`) scheiterte der Aufruf mit "Permission denied", und der Doctor
+  # meldete einen Kern-Verfall, den es nicht gab.
+  if "$BASH" "$SRC/setup.sh" --diff "$TARGET" >/dev/null 2>&1; then
     doc_ok "Werkzeug-Kern deckungsgleich mit dem Template"
   else
     doc_fail "Werkzeug-Kern weicht ab oder ist inaktiv (Details: ./setup.sh --diff \"$TARGET\")" \
@@ -452,16 +455,12 @@ chmod +x "$TARGET/.claude/hooks/"*.sh "$TARGET/.githooks/pre-commit" "$TARGET/.g
 # übersprungenen Dateien nicht haben müssen).
 [ -f "$TARGET/.claude/TEMPLATE_VERSION" ] || stamp_version
 
-# Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist.
-if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git -C "$TARGET" config core.hooksPath .githooks
-  echo
-  echo "  ✓  git core.hooksPath -> .githooks (Pre-Commit-Secret-Scan aktiv)"
-else
-  echo
-  echo "  ⚠  Kein Git-Repo — nach 'git init' einmal ausführen:"
-  echo "     git -C \"$TARGET\" config core.hooksPath .githooks"
-fi
+# Git-Hooks aktivieren, wenn das Ziel ein Git-Repo ist. Über git_hooks_path
+# wie bei --update: früher setzte der Kopier-Modus core.hooksPath hart und
+# überschrieb damit eine bestehende Verdrahtung (z. B. .husky) — die
+# Projekt-Hooks liefen danach still nicht mehr.
+echo
+git_hooks_path || true
 
 # CI-Aktivierung: bei erkanntem Stack wird die passende Vorlage direkt als
 # ci.yml geschrieben (statt nur auf das Umbenennen hinzuweisen) — der Fehlmodus

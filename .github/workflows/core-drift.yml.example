@@ -42,6 +42,12 @@ jobs:
       - name: Checkout
         # actions/checkout v7.0.1
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Ohne das legt checkout den GITHUB_TOKEN in .git/config ab — und
+          # der nächste Step führt fremden Code (setup.sh des Templates) aus,
+          # der ihn dort lesen könnte. Der Job braucht nach dem Checkout
+          # keinen Token mehr.
+          persist-credentials: false
 
       - name: Template klonen (letzter Release-Tag)
         run: |

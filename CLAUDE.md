@@ -198,7 +198,10 @@ Zielprojekten `setup.sh` aus einem frischen Klon dieses Repos aus — wer
 dieses Repo kompromittiert, erreicht deren CI (Mitigation: der Workflow läuft
 mit `contents: read`, ohne Secrets).
 
-Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar.
+Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar —
+einzutragen vom Menschen, `protect-secrets.sh` blockt Claude dort. Auf
+PRs prüft die CI mit der Allowlist des Base-Branches, nicht der des PRs —
+eine Allowlist-Änderung kommt deshalb als eigener PR vor dem eigentlichen.
 `.env.example` ist der bewusste blinde Fleck aller gitleaks-Schichten — dort
 dürfen NUR Platzhalter stehen. Deshalb ist es auch die einzige Datei, die
 `protect-secrets.sh` als editierbare Vorlage durchlässt.

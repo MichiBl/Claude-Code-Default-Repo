@@ -136,6 +136,9 @@ check "service-account*.json wird geblockt" 2 "$(hook_exit "$PS" "$(payload_writ
 check "SSH-Key (id_rsa) wird geblockt"     2 "$(hook_exit "$PS" "$(payload_write /proj/id_rsa)")"
 check "normale Quelldatei bleibt erlaubt"  0 "$(hook_exit "$PS" "$(payload_write /proj/src/app.ts)")"
 check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
+# Die Allowlist steuert, was alle gitleaks-Schichten durchlassen — Claude
+# könnte sonst einen Fund selbst "als Falsch-Positiv" freigeben.
+check ".gitleaks.toml wird geblockt"       2 "$(hook_exit "$PS" "$(payload_write /proj/.gitleaks.toml)")"
 
 # Ohne Interpreter muss der Hook weiter blocken UND es sagen — vorher fiel er
 # hier lautlos mit exit 0 durch.
@@ -236,6 +239,16 @@ if command -v gitleaks >/dev/null 2>&1; then
   git -C "$OK" add notes.txt
   check "Commit ohne Secret bleibt erlaubt" 0 \
     "$(hook_exit_in "$OK" "$SS" "$(payload_bash 'git commit -m test')")"
+
+  # Regression: `git commit -a` (und Pfad-Commits) holen den Inhalt erst beim
+  # Commit aus dem Arbeitsbaum — --staged allein sah das Secret nicht.
+  AM="$(mkfix scanam)"
+  echo "harmlos" > "$AM/config.txt"
+  git -C "$AM" add config.txt
+  git_t -C "$AM" commit -q -m init
+  printf 'aws_access_key_id = %s\n' "$AWS_FAKE" > "$AM/config.txt"
+  check "git commit -am mit nicht gestagtem Fake-Key wird geblockt" 2 \
+    "$(hook_exit_in "$AM" "$SS" "$(payload_bash 'git commit -am wip')")"
 
   echo "== .githooks/pre-commit =="
   rc=0; (cd "$HOT" && bash "$ROOT/.githooks/pre-commit") >/dev/null 2>&1 || rc=$?
@@ -608,6 +621,15 @@ rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
 check "--update überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
 check_contains "--update meldet die abweichende hooksPath" ".myhooks" "$out"
 
+# Dasselbe im Kopier-Modus: der setzte core.hooksPath früher hart und legte
+# damit z. B. eine bestehende .husky-Verdrahtung still.
+d="$(mkfix copy-hookspath)"
+git -C "$d" config core.hooksPath .myhooks
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)"
+rc=0; [ "$(git -C "$d" config --get core.hooksPath)" = ".myhooks" ] || rc=1
+check "Kopier-Modus überschreibt eigene hooksPath-Wahl nicht" 0 "$rc"
+check_contains "Kopier-Modus meldet die abweichende hooksPath" ".myhooks" "$out"
+
 # --- setup.sh: --doctor --------------------------------------------------------------
 # Der Doctor beantwortet "ist dieses Projekt wirklich geschützt?" in einem
 # Lauf. Exit 1, sobald eine Schicht fehlt; jede Meldung trägt den
@@ -637,6 +659,18 @@ json.dump(s, open(p, "w"), indent=2)
 PY
 out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"
 check_contains "--doctor findet den entdrahteten Hook" "protect-secrets.sh" "$out"
+
+# Ohne Ausführungsbit auf setup.sh (ZIP-Download, Aufruf per `bash setup.sh`)
+# scheiterte der interne --diff-Aufruf an "$0" und der Doctor meldete einen
+# Kern-Verfall, den es nicht gab.
+TPL_NOX="$TMP/tpl-noexec"; mkdir -p "$TPL_NOX"
+cp -R "$ROOT/." "$TPL_NOX/"
+chmod -x "$TPL_NOX/setup.sh"
+d="$(mkfix doc-noexec)"
+bash "$TPL_NOX/setup.sh" "$d" >/dev/null 2>&1 || true
+out="$(bash "$TPL_NOX/setup.sh" --doctor "$d" 2>&1)"
+check_contains "--doctor ohne Ausführungsbit: Kern korrekt deckungsgleich" \
+  "Werkzeug-Kern deckungsgleich" "$out"
 
 # Gesundes Projekt: alle sieben Schichten aktiv -> Exit 0. (Braucht gitleaks
 # auf dem Host — Schicht 1 ist sonst zu Recht rot.)
@@ -787,6 +821,19 @@ check "gitleaks-Pin (Version + SHA) in beiden Workflows identisch" 0 "$rc"
 sha="$(grep -h 'GITLEAKS_SHA256:' "$WF1" | sed 's/.*"\([^"]*\)".*/\1/')"
 rc=0; printf '%s' "$sha" | grep -Eq '^[0-9a-f]{64}$' || rc=1
 check "GITLEAKS_SHA256 ist ein voller SHA-256" 0 "$rc"
+
+# Auf PRs muss das harte Gate die Allowlist des Base-Branches nutzen. Mit der
+# des PRs konnte ein PR sein eigenes Secret per .gitleaks.toml freigeben.
+rc=0
+grep -q 'BASE_REF: ${{ github.base_ref }}' "$WF1" || rc=1
+grep -q 'git show "origin/${BASE_REF}:.gitleaks.toml"' "$WF1" || rc=1
+check "secret-scan.yml nutzt auf PRs die .gitleaks.toml des Base-Branches" 0 "$rc"
+
+# core-drift führt setup.sh aus einem fremden Repo aus. Ein in .git/config
+# abgelegter GITHUB_TOKEN wäre für diesen Code lesbar.
+rc=0
+grep -q 'persist-credentials: false' "$ROOT/.github/workflows/core-drift.yml.example" || rc=1
+check "core-drift.yml.example legt keinen Token in .git/config ab" 0 "$rc"
 
 # --- .github/dependabot.yml: cooldown ----------------------------------------------
 # Ein kompromittiertes Release hat am Erscheinungstag noch keinen CVE-Eintrag:

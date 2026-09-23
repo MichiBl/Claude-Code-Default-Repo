@@ -4,6 +4,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen
 nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 `VERSION` + Eintrag hier + Git-Tag (`vX.Y.Z`).
 
+## [Unreleased]
+
+### Security
+
+- `secret-scan.yml`: auf PRs gilt die `.gitleaks.toml` des Base-Branches.
+  Vorher konnte ein PR sein eigenes Secret per Allowlist-Eintrag freigeben.
+- `core-drift.yml.example`: `persist-credentials: false` — der Job führt
+  `setup.sh` aus dem Template-Repo aus, das den Token sonst lesen könnte.
+- `protect-secrets.sh` blockt Schreibzugriffe von Claude auf `.gitleaks.toml`:
+  sonst konnte Claude einen Fund selbst als Falsch-Positiv freigeben.
+
+### Fixed
+
+- `secret-scan.sh`: scannt bei `git commit` auch nicht gestagte Änderungen an
+  getrackten Dateien — `git commit -a` und Pfad-Commits kamen mit einem
+  Secret an der Claude-Schicht vorbei.
+- `setup.sh` (Kopier-Modus): überschreibt eine bestehende `core.hooksPath`
+  (z. B. `.husky`) nicht mehr, sondern meldet sie — wie `--update` und
+  `session-start.sh`.
+- `setup.sh --doctor`: meldete falschen Kern-Verfall, wenn `setup.sh` kein
+  Ausführungsbit hatte (interner Aufruf über `$0`).
+
 ## [1.0.0] — 2026-08-21
 
 Erstes versioniertes Release. Schließt die bekannten Schwächen des Setups:
