@@ -826,6 +826,12 @@ grep -q 'BASE_REF: ${{ github.base_ref }}' "$WF1" || rc=1
 grep -q 'git show "origin/${BASE_REF}:.gitleaks.toml"' "$WF1" || rc=1
 check "secret-scan.yml nutzt auf PRs die .gitleaks.toml des Base-Branches" 0 "$rc"
 
+# core-drift führt setup.sh aus einem fremden Repo aus. Ein in .git/config
+# abgelegter GITHUB_TOKEN wäre für diesen Code lesbar.
+rc=0
+grep -q 'persist-credentials: false' "$ROOT/.github/workflows/core-drift.yml.example" || rc=1
+check "core-drift.yml.example legt keinen Token in .git/config ab" 0 "$rc"
+
 # --- .github/dependabot.yml: cooldown ----------------------------------------------
 # Ein kompromittiertes Release hat am Erscheinungstag noch keinen CVE-Eintrag:
 # das Audit schweigt, die CI ist grün, und Dependabot macht brav einen PR darauf.

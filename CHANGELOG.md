@@ -10,6 +10,8 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 
 - `secret-scan.yml`: auf PRs gilt die `.gitleaks.toml` des Base-Branches.
   Vorher konnte ein PR sein eigenes Secret per Allowlist-Eintrag freigeben.
+- `core-drift.yml.example`: `persist-credentials: false` — der Job führt
+  `setup.sh` aus dem Template-Repo aus, das den Token sonst lesen könnte.
 
 ### Fixed
 
