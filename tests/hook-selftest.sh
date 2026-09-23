@@ -657,6 +657,18 @@ PY
 out="$(bash "$ROOT/setup.sh" --doctor "$d" 2>&1)"
 check_contains "--doctor findet den entdrahteten Hook" "protect-secrets.sh" "$out"
 
+# Ohne Ausführungsbit auf setup.sh (ZIP-Download, Aufruf per `bash setup.sh`)
+# scheiterte der interne --diff-Aufruf an "$0" und der Doctor meldete einen
+# Kern-Verfall, den es nicht gab.
+TPL_NOX="$TMP/tpl-noexec"; mkdir -p "$TPL_NOX"
+cp -R "$ROOT/." "$TPL_NOX/"
+chmod -x "$TPL_NOX/setup.sh"
+d="$(mkfix doc-noexec)"
+bash "$TPL_NOX/setup.sh" "$d" >/dev/null 2>&1 || true
+out="$(bash "$TPL_NOX/setup.sh" --doctor "$d" 2>&1)"
+check_contains "--doctor ohne Ausführungsbit: Kern korrekt deckungsgleich" \
+  "Werkzeug-Kern deckungsgleich" "$out"
+
 # Gesundes Projekt: alle sieben Schichten aktiv -> Exit 0. (Braucht gitleaks
 # auf dem Host — Schicht 1 ist sonst zu Recht rot.)
 if command -v gitleaks >/dev/null 2>&1; then

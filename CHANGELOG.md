@@ -14,6 +14,8 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 - `setup.sh` (Kopier-Modus): überschreibt eine bestehende `core.hooksPath`
   (z. B. `.husky`) nicht mehr, sondern meldet sie — wie `--update` und
   `session-start.sh`.
+- `setup.sh --doctor`: meldete falschen Kern-Verfall, wenn `setup.sh` kein
+  Ausführungsbit hatte (interner Aufruf über `$0`).
 
 ## [1.0.0] — 2026-08-21
 

@@ -359,7 +359,10 @@ if [ "$MODE" = "doctor" ]; then
   fi
 
   # 7. Kern deckungsgleich — dieselbe Prüfung wie --diff, nur als eine Zeile.
-  if "$0" --diff "$TARGET" >/dev/null 2>&1; then
+  # Über "$BASH" statt "$0": ohne Ausführungsbit (ZIP-Download, `bash
+  # setup.sh`) scheiterte der Aufruf mit "Permission denied", und der Doctor
+  # meldete einen Kern-Verfall, den es nicht gab.
+  if "$BASH" "$SRC/setup.sh" --diff "$TARGET" >/dev/null 2>&1; then
     doc_ok "Werkzeug-Kern deckungsgleich mit dem Template"
   else
     doc_fail "Werkzeug-Kern weicht ab oder ist inaktiv (Details: ./setup.sh --diff \"$TARGET\")" \
