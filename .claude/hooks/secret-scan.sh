@@ -5,7 +5,8 @@
 #
 # Mechanik: erkennt selbst, ob der auszuführende Befehl ein commit/push ist
 # (alles andere wird sofort durchgewunken), und scannt dann mit gitleaks:
-#   * commit -> die gestagten Änderungen (gitleaks git --staged)
+#   * commit -> gestagte UND nicht gestagte Änderungen an getrackten Dateien
+#               (gitleaks git --staged / --pre-commit; wegen `commit -a`)
 #   * push   -> die Commits, die der Remote noch nicht hat
 #
 # Exit-Code-Vertrag (PreToolUse):
@@ -96,6 +97,14 @@ RESULT=""
 if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?commit'; then
   # Commit: gestagte Änderungen scannen.
   RESULT="$(gitleaks git --staged --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+  # Dazu die NICHT gestagten Änderungen an getrackten Dateien: `git commit -a`,
+  # `git commit <pfad>` und `-i`/`-o` nehmen Inhalt aus dem Arbeitsbaum, den
+  # --staged zum Zeitpunkt des Hooks nicht sieht — ein Secret kam so an dieser
+  # Schicht vorbei. Die Flags zu parsen wäre fehleranfällig; einmal zu viel
+  # scannen ist die sichere Richtung.
+  if [ "$STATUS" -eq 0 ]; then
+    RESULT="$(gitleaks git --pre-commit --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+  fi
 else
   # Push: die Commits scannen, die upstream noch fehlen.
   RANGE=""

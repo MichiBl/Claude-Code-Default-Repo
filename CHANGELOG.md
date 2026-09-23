@@ -4,6 +4,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen
 nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 `VERSION` + Eintrag hier + Git-Tag (`vX.Y.Z`).
 
+## [Unreleased]
+
+### Fixed
+
+- `secret-scan.sh`: scannt bei `git commit` auch nicht gestagte Änderungen an
+  getrackten Dateien — `git commit -a` und Pfad-Commits kamen mit einem
+  Secret an der Claude-Schicht vorbei.
+
 ## [1.0.0] — 2026-08-21
 
 Erstes versioniertes Release. Schließt die bekannten Schwächen des Setups:

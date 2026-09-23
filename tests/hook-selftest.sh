@@ -237,6 +237,16 @@ if command -v gitleaks >/dev/null 2>&1; then
   check "Commit ohne Secret bleibt erlaubt" 0 \
     "$(hook_exit_in "$OK" "$SS" "$(payload_bash 'git commit -m test')")"
 
+  # Regression: `git commit -a` (und Pfad-Commits) holen den Inhalt erst beim
+  # Commit aus dem Arbeitsbaum — --staged allein sah das Secret nicht.
+  AM="$(mkfix scanam)"
+  echo "harmlos" > "$AM/config.txt"
+  git -C "$AM" add config.txt
+  git_t -C "$AM" commit -q -m init
+  printf 'aws_access_key_id = %s\n' "$AWS_FAKE" > "$AM/config.txt"
+  check "git commit -am mit nicht gestagtem Fake-Key wird geblockt" 2 \
+    "$(hook_exit_in "$AM" "$SS" "$(payload_bash 'git commit -am wip')")"
+
   echo "== .githooks/pre-commit =="
   rc=0; (cd "$HOT" && bash "$ROOT/.githooks/pre-commit") >/dev/null 2>&1 || rc=$?
   check "pre-commit blockt gestagtes Secret" 1 "$rc"
