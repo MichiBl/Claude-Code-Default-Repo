@@ -6,6 +6,11 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 
 ## [Unreleased]
 
+### Security
+
+- `secret-scan.yml`: auf PRs gilt die `.gitleaks.toml` des Base-Branches.
+  Vorher konnte ein PR sein eigenes Secret per Allowlist-Eintrag freigeben.
+
 ### Fixed
 
 - `secret-scan.sh`: scannt bei `git commit` auch nicht gestagte Änderungen an

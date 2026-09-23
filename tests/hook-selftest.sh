@@ -819,6 +819,13 @@ sha="$(grep -h 'GITLEAKS_SHA256:' "$WF1" | sed 's/.*"\([^"]*\)".*/\1/')"
 rc=0; printf '%s' "$sha" | grep -Eq '^[0-9a-f]{64}$' || rc=1
 check "GITLEAKS_SHA256 ist ein voller SHA-256" 0 "$rc"
 
+# Auf PRs muss das harte Gate die Allowlist des Base-Branches nutzen. Mit der
+# des PRs konnte ein PR sein eigenes Secret per .gitleaks.toml freigeben.
+rc=0
+grep -q 'BASE_REF: ${{ github.base_ref }}' "$WF1" || rc=1
+grep -q 'git show "origin/${BASE_REF}:.gitleaks.toml"' "$WF1" || rc=1
+check "secret-scan.yml nutzt auf PRs die .gitleaks.toml des Base-Branches" 0 "$rc"
+
 # --- .github/dependabot.yml: cooldown ----------------------------------------------
 # Ein kompromittiertes Release hat am Erscheinungstag noch keinen CVE-Eintrag:
 # das Audit schweigt, die CI ist grün, und Dependabot macht brav einen PR darauf.

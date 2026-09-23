@@ -128,7 +128,9 @@ Secret-Schutz (Defense in Depth, generisch eingerichtet):
    jeden Commit bzw. Push mit Secrets.
 3. CI `.github/workflows/secret-scan.yml` ist der nicht überspringbare Backstop.
 4. GitHub Push Protection (im Repo aktivieren!) blockt serverseitig.
-Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar.
+Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar. Auf
+PRs prüft die CI mit der Allowlist des Base-Branches — eine Allowlist-Änderung
+kommt deshalb als eigener PR vor dem eigentlichen.
 
 ## Roadmap & Offene Punkte
 

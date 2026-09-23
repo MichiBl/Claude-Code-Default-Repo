@@ -307,7 +307,10 @@ führt ihn auf jedem PR aus — per Repo-Guard **nur in diesem Template-Repo**;
 
 Die Scan-Schichten nutzen gitleaks bzw. GitHubs eigenen Scanner; ein
 Binary, keine Sprachabhängigkeit. Falsch-Positive kommen mit
-Begründungskommentar in die `.gitleaks.toml`-Allowlist. Die deny-Regeln
+Begründungskommentar in die `.gitleaks.toml`-Allowlist. Auf PRs prüft die
+CI mit der Allowlist des Base-Branches, nicht der des PRs — sonst könnte ein
+PR sein eigenes Secret freigeben; eine Allowlist-Änderung kommt deshalb als
+eigener PR vor dem eigentlichen. Die deny-Regeln
 davor decken `.env`-Varianten (auch in Unterordnern), Keys und `secrets/`
 ab — bewusst als Aufzählung statt `.env.*`, damit `.env.example` lesbar
 bleibt und Claude die Vorlage pflegen kann. Eine exotische Variante
