@@ -26,6 +26,10 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 - `setup.sh --doctor`: meldete falschen Kern-Verfall, wenn `setup.sh` kein
   Ausführungsbit hatte (interner Aufruf über `$0`).
 
+### Changed
+
+- `ci-python-uv.yml.example`: `astral-sh/setup-uv` v10.0.1 -> v10.2.0.
+
 ## [1.0.0] — 2026-08-21
 
 Erstes versioniertes Release. Schließt die bekannten Schwächen des Setups:
