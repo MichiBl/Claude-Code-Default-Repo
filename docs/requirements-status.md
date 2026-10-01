@@ -8,7 +8,8 @@ Reihenfolge, und was davon fertig ist. Vor jeder Aufgabe lesen —
 
 - Jeder Punkt hat einen Status: `[ ]` offen · `[~]` in Arbeit · `[x]` fertig.
 - Fertig ist ein Punkt erst, wenn seine Akzeptanzkriterien (AK) erfüllt und
-  verifiziert sind — dann abhaken und PR/Commit dazu vermerken.
+  verifiziert sind — dann abhaken und PR/Commit (bei `/feature`: den
+  Spec-Pfad) dazu vermerken.
 - Nicht-triviale Punkte laufen über `/feature <punkt>`, kleine klar
   umrissene über `/fix <punkt>`; die Detail-Spezifikation entsteht dann
   unter `docs/features/<slug>/`.

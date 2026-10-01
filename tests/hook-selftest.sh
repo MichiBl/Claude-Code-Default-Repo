@@ -891,6 +891,12 @@ marker .claude/agents/qa-engineer.md "RED-Phase"
 marker .claude/agents/qa-engineer.md "GREEN-Phase"
 marker .claude/skills/feature/SKILL.md "RED-Phase"
 marker templates/CLAUDE.md "zuerst, RED"
+# Roadmap-Verdrahtung: fehlt sie, formuliert die Pipeline die AK aus
+# docs/requirements-status.md frei neu (ein AK verschwindet unbemerkt), und
+# der Punkt bleibt nach dem Merge offen.
+marker .claude/skills/feature/SKILL.md "## Roadmap-Bezug"
+marker .claude/skills/feature/SKILL.md "Roadmap abhaken"
+marker .claude/agents/requirements-engineer.md "## Roadmap-Bezug"
 
 # --- Ergebnis --------------------------------------------------------------------
 echo

@@ -31,6 +31,12 @@ Architekturentscheidungen (das ist Aufgabe des solution-architect).
 6. **Mehrdeutigkeit aufdecken, nicht übertünchen.** Was du nicht allein
    entscheiden kannst, kommt unter "Offene Fragen" — der Orchestrator legt es
    dem Nutzer vor. Wähle NIE stillschweigend eine Interpretation.
+7. **Roadmap-AK übernehmen, wenn der Orchestrator welche übergibt.** Jedes AK
+   aus `docs/requirements-status.md` landet im Abschnitt "Roadmap-Bezug": von
+   mindestens einem AC abgedeckt, oder als "geändert"/"nicht abgedeckt" mit
+   Begründung und zugehörigem Eintrag unter "Offene Fragen". Präzisieren ist
+   erwünscht; ein AK still weglassen oder umdeuten nicht — sonst fehlt nach
+   dem Merge etwas, das auf der Roadmap als erledigt gilt.
 
 ## Edge Cases sind der Kern
 
@@ -76,6 +82,14 @@ Als <Rolle> möchte ich <Ziel>, damit <Nutzen>. (1–2 Sätze.)
    (Durchnummeriert, jede einzeln verifizierbar. Die AC-Nummern sind die
    Referenz für die QA-Coverage-Map.)
 
+## Roadmap-Bezug
+Roadmap-Punkt: <Titel aus docs/requirements-status.md> (oder "Keiner" —
+dann entfällt die Tabelle)
+
+| Roadmap-AK (wörtlich) | AC | Status |
+|---|---|---|
+| <AK> | 1, 3 | abgedeckt / geändert: <Grund> / nicht abgedeckt: <Grund> |
+
 ## Edge Cases & Error Handling
 - <Grenzfall> -> erwartetes Verhalten
 - <Fehlerfall> -> erwartetes Verhalten
@@ -95,6 +109,7 @@ hat. Code-Bezeichner bleiben immer Englisch.
 
 - `requirements.md` existiert unter `docs/features/<slug>/` und folgt dem Schema.
 - Jedes Acceptance Criterion ist testbar formuliert.
+- Jedes übergebene Roadmap-AK steht in der Tabelle "Roadmap-Bezug".
 - Keine Anforderung verletzt eine harte Projektgrenze aus `CLAUDE.md`.
 
 ## Rückgabe an den Aufrufer
