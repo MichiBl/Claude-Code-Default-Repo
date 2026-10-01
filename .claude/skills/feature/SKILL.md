@@ -50,16 +50,36 @@ Bindestriche, keine Sonderzeichen). Alle Artefakte leben unter
 `docs/features/<slug>/`. Nenne den Slug dem User zu Beginn; bei Unklarheit
 per `AskUserQuestion` klären.
 
+## Roadmap-Bezug
+
+Die Roadmap `docs/requirements-status.md` legt fest, WAS gebaut wird, samt
+grober Akzeptanzkriterien (AK). Ohne diesen Schritt formuliert die Pipeline
+die AK frei neu: ein AK aus der Roadmap kann unbemerkt verschwinden, und der
+Punkt bleibt nach dem Merge offen — „nächster Punkt" zeigt dann auf Erledigtes.
+
+- Suche den Punkt, der zur Anfrage passt. Eindeutig -> dem User nennen.
+  Mehrere Kandidaten -> per `AskUserQuestion` klären.
+- Kein passender Punkt, keine Datei oder nur die unausgefüllte Vorlage
+  (`<Titel …>`-Platzhalter) -> dem User sagen, dass das Feature ohne
+  Roadmap-Bezug läuft, und weitermachen. Lege nie selbst einen Punkt an —
+  was auf die Roadmap gehört, entscheidet der User.
+- Die Roadmap wird hier nur gelesen. Geändert wird sie ausschließlich in
+  Schritt 7, auf dem Feature-Branch.
+
 ## Pipeline — strikte Reihenfolge, keine Parallelisierung
 
 ### 1. Requirements (`requirements-engineer`)
 
 Delegiere via `Agent`-Tool. Übergib: die User-Anfrage wörtlich, den Slug, den
-Artefakt-Pfad. Ergebnis: `docs/features/<slug>/requirements.md`.
+Artefakt-Pfad und — falls es einen Roadmap-Punkt gibt — dessen Titel und AK
+wörtlich. Ergebnis: `docs/features/<slug>/requirements.md`.
 
 Wenn der Agent zurückkommt: **LIES die Datei selbst** (nicht der Zusammenfassung
 vertrauen), präsentiere dem User 3–5 Bullets + alle offenen Fragen
-(`AskUserQuestion` bei offenen Fragen).
+(`AskUserQuestion` bei offenen Fragen). Mit Roadmap-Punkt zusätzlich: jedes
+Roadmap-AK, das im Abschnitt "Roadmap-Bezug" nicht als "abgedeckt" geführt
+ist, einzeln benennen — hier entscheidet der User, ob die Abweichung gewollt
+ist.
 
 > **GATE 1 — echte User-Bestätigung (Pflicht).** Erst nach klarem
 > "ok/weiter/passt" geht es zu Schritt 2. Bei Änderungswunsch: Agent
@@ -138,6 +158,13 @@ Erst wenn Review APPROVED **und** QA grün:
 - Committe Produktivcode + Tests + die vier Artefakte aus
   `docs/features/<slug>/`. Conventional-Commit-Message
   (`feat:`/`fix:`/`docs:`/`test:`/`chore:`).
+- **Roadmap abhaken** (nur mit Roadmap-Punkt): setze den Punkt in
+  `docs/requirements-status.md` auf `[x]` und vermerke dahinter
+  `-> docs/features/<slug>/` — im selben Commit. Auf dem Default-Branch wird
+  der Haken erst mit dem Merge wahr, und den Merge gibt der User nach den
+  MC-Checks frei; damit gilt weiter „abhaken erst nach verifizierten AK".
+  Hat der User ein Roadmap-AK bei Gate 1 bewusst gestrichen, steht das als
+  Hinweis im PR-Body, nicht als stiller Haken.
 - Push (`git push -u origin <branch>`), dann PR **als Draft** gegen den
   Default-Branch. PR-Body: Link auf `requirements.md`, Liste der Acceptance
   Criteria, Liste der Testdateien.
@@ -166,6 +193,8 @@ Erst wenn Review APPROVED **und** QA grün:
 - Reihenfolge strikt; kein Schritt vor seinem Gate; Gates 1+2 erfordern
   **echte** User-Bestätigung — nie selbst annehmen.
 - Implementierung wird **nie** an einen Subagenten delegiert.
+- Ein Roadmap-AK fällt nie stillschweigend weg: abgedeckt oder bei Gate 1
+  vom User bewusst geändert/gestrichen.
 - Die RED-Phase nie überspringen, und rote Tests nie durch Abschwächen grün
   machen — grün wird ausschließlich durch Implementierung.
 - Subagenten-Grenzen respektieren: requirements/architect/reviewer schreiben

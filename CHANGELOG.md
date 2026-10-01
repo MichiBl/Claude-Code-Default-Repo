@@ -29,6 +29,11 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 ### Changed
 
 - `ci-python-uv.yml.example`: `astral-sh/setup-uv` v10.0.1 -> v10.2.0.
+- `/feature` ist mit der Roadmap `docs/requirements-status.md` verdrahtet:
+  die AK des passenden Punkts gehen wörtlich an den `requirements-engineer`,
+  der sie in einer Tabelle "Roadmap-Bezug" auf ACs abbildet, und der Punkt
+  wird im PR abgehakt. Vorher konnte ein Roadmap-AK unbemerkt wegfallen, und
+  der Punkt blieb nach dem Merge offen.
 
 ## [1.0.0] — 2026-08-21
 

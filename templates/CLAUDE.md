@@ -139,7 +139,9 @@ Die zentrale Roadmap liegt in `docs/requirements-status.md`: alle geplanten
 Punkte mit Status und Akzeptanzkriterien, sortiert nach Priorität.
 „Nächster Punkt" heißt: der oberste offene Punkt dort. Nach Abschluss den
 Status dort abhaken (erst nach verifizierten Akzeptanzkriterien) und neue
-Erkenntnisse als neue Punkte ergänzen.
+Erkenntnisse als neue Punkte ergänzen. `/feature` übernimmt die AK des
+Punkts in die Feature-Spec und hakt ihn im PR ab; bei `/fix` und direkten
+Änderungen bleibt das Abhaken Handarbeit.
 
 ## Feature-Workflow (Agent-Team)
 
