@@ -118,6 +118,31 @@ git_t() { # git mit Wegwerf-Identität (Fixtures haben keine globale Config)
   git -c user.email=selftest@invalid -c user.name=selftest "$@"
 }
 
+# uv-Stub: bildet ein Projekt-Env OHNE Gate-Tools nach, während ein global
+# installiertes ruff/pytest im PATH liegt. `uv run --no-sync python -m …`
+# scheitert (Tool fehlt im Env), `uv run --no-sync <tool>` gelingt (globales
+# Binary). Genau diese Lage täuschte den Hooks ein vollständiges Env vor.
+# Jeder Aufruf landet in $UV_LOG, damit die Tests die Sync-Argumente sehen.
+UVSTUB_BIN="$TMP/uvstub-bin"; mkdir -p "$UVSTUB_BIN"
+cat > "$UVSTUB_BIN/uv" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$UV_LOG"
+case "$*" in
+  "run --no-sync python -m "*) exit 1 ;;
+  *) exit 0 ;;
+esac
+EOF
+chmod +x "$UVSTUB_BIN/uv"
+
+hook_run_uvstub() { # hook_run_uvstub <projektdir> <hook> <payload> — setzt RC, ERR, UVCALLS
+  RC=0; : > "$TMP/uv.log"
+  printf '%s' "$3" \
+    | env PATH="$UVSTUB_BIN:$PATH" UV_LOG="$TMP/uv.log" CLAUDE_PROJECT_DIR="$1" bash "$2" \
+      >/dev/null 2>"$TMP/stderr.txt" || RC=$?
+  ERR="$(cat "$TMP/stderr.txt" 2>/dev/null || true)"
+  UVCALLS="$(cat "$TMP/uv.log")"
+}
+
 # --- protect-secrets.sh --------------------------------------------------------
 echo "== protect-secrets.sh =="
 PS="$HOOKS/protect-secrets.sh"
@@ -175,6 +200,18 @@ printf '#!/usr/bin/env bash\nexit 2\n' > "$d/.claude/hooks/verify-project.sh"
 chmod +x "$d/.claude/hooks/verify-project.sh"
 check "Projekt-Override (verify-project.sh) greift" 2 \
   "$(hook_exit_in "$d" "$V" '{}')"
+
+# Ein global installiertes ruff darf kein vollständiges uv-Env vortäuschen:
+# sonst liefen die Gates gegen ein Env ohne Projekt-Dependencies, und pytest
+# scheiterte an Importen statt am Code. Erwartet: Gates übersprungen, mit
+# Hinweis — nicht still gegen das falsche Env gelaufen.
+d="$(mkfix uv-global-ruff)"
+printf '[project]\nname = "x"\n' > "$d/pyproject.toml"; touch "$d/uv.lock"
+echo "x = 1" > "$d/app.py"
+hook_run_uvstub "$d" "$V" '{}'
+check "uv: globales ruff täuscht kein Env vor (Stop erlaubt)" 0 "$RC"
+check_contains "uv: fehlende Dev-Deps werden gemeldet" "dev-Deps fehlen" "$ERR"
+check_absent "uv: keine Gates gegen globales ruff" "run --no-sync ruff" "$UVCALLS"
 
 if command -v npm >/dev/null 2>&1; then
   d="$(mkfix nodered)"
@@ -380,6 +417,26 @@ d="$(mkfix ss-ohne-gitleaks)"
 hook_run_nopy "$d" "$SST" ""
 check "ohne gitleaks: session-start blockiert nicht" 0 "$RC"
 check_contains "ohne gitleaks: Warnung auf stderr" "gitleaks nicht installiert" "$ERR"
+
+# uv-Env-Prüfung: ein global installiertes ruff verhinderte den Sync, und
+# Dev-Extras ([project.optional-dependencies] dev) kamen ohne --extra dev
+# nie ins Env — verify.sh übersprang danach still alle Python-Gates.
+d="$TMP/ss-uv-extra"; mkdir -p "$d"
+printf '[project]\nname = "x"\n\n[project.optional-dependencies]\ndev = ["ruff", "pytest"]\n' > "$d/pyproject.toml"
+touch "$d/uv.lock"
+hook_run_uvstub "$d" "$SST" ""
+check "uv: session-start blockiert nie" 0 "$RC"
+check_contains "uv: globales ruff verhindert den Sync nicht" "sync --locked" "$UVCALLS"
+check_contains "uv: Dev-Extra wird erkannt und mitinstalliert" "sync --locked --extra dev" "$UVCALLS"
+
+# dependency-groups "dev" installiert uv per Default — dort wäre --extra dev
+# ein Fehler (uv bricht bei unbekanntem Extra ab).
+d="$TMP/ss-uv-group"; mkdir -p "$d"
+printf '[project]\nname = "x"\n\n[dependency-groups]\ndev = ["ruff", "pytest"]\n' > "$d/pyproject.toml"
+touch "$d/uv.lock"
+hook_run_uvstub "$d" "$SST" ""
+check_contains "uv: ohne Dev-Extra wird trotzdem gesynct" "sync --locked" "$UVCALLS"
+check_absent "uv: kein --extra dev ohne optional-dependencies.dev" "--extra dev" "$UVCALLS"
 
 # --- setup.sh: CI-Aktivierung ------------------------------------------------------
 echo "== setup.sh: CI-Aktivierung =="
