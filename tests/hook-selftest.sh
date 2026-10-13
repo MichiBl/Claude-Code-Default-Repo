@@ -961,6 +961,13 @@ marker templates/CLAUDE.md "zuerst, RED"
 marker .claude/skills/feature/SKILL.md "## Roadmap-Bezug"
 marker .claude/skills/feature/SKILL.md "Roadmap abhaken"
 marker .claude/agents/requirements-engineer.md "## Roadmap-Bezug"
+# Specs sind Planungsstände: ohne den Vermerk hält eine spätere Session eine
+# veraltete Spec für das aktuelle Verhalten — gefährlicher als gar keine.
+marker .claude/agents/requirements-engineer.md "> Planungsstand vom"
+marker .claude/agents/solution-architect.md "> Planungsstand vom"
+# /fix ändert Verhalten, das Specs beschreiben. Ohne Nachtrag fehlt in der
+# Spec jeder Hinweis, dass sie an dieser Stelle nicht mehr stimmt.
+marker .claude/skills/fix/SKILL.md "## Nachträge"
 
 # --- Ergebnis --------------------------------------------------------------------
 echo

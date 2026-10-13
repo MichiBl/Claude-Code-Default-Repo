@@ -66,6 +66,10 @@ Slug: kebab-case, abgeleitet vom Feature-Titel. Halte exakt dieses Schema ein:
 ```markdown
 # Requirements: <Feature-Titel>
 
+> Planungsstand vom <YYYY-MM-DD>. Wird nach dem Merge nicht nachgepflegt —
+> maßgeblich für das aktuelle Verhalten ist der Code. Spätere
+> Verhaltensänderungen stehen unter „Nachträge" am Ende, falls vorhanden.
+
 ## User Story
 Als <Rolle> möchte ich <Ziel>, damit <Nutzen>. (1–2 Sätze.)
 
