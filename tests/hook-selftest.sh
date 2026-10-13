@@ -879,6 +879,13 @@ sha="$(grep -h 'GITLEAKS_SHA256:' "$WF1" | sed 's/.*"\([^"]*\)".*/\1/')"
 rc=0; printf '%s' "$sha" | grep -Eq '^[0-9a-f]{64}$' || rc=1
 check "GITLEAKS_SHA256 ist ein voller SHA-256" 0 "$rc"
 
+# detect-secrets (in Zielprojekten oft per pre-commit) meldet den Hash als
+# "Hex High Entropy String" und färbt deren CI rot. Ein Baseline-Eintrag
+# hilft nicht: er speichert einen SHA-1, den gitleaks als generic-api-key
+# meldet. Das Inline-Pragma ist der einzige Weg ohne Scanner-Konflikt.
+rc=0; grep -q 'GITLEAKS_SHA256: ".*" *# pragma: allowlist secret' "$WF1" || rc=1
+check "GITLEAKS_SHA256 in secret-scan.yml trägt das detect-secrets-Pragma" 0 "$rc"
+
 # Auf PRs muss das harte Gate die Allowlist des Base-Branches nutzen. Mit der
 # des PRs konnte ein PR sein eigenes Secret per .gitleaks.toml freigeben.
 rc=0
