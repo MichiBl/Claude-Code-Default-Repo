@@ -247,9 +247,10 @@ Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
   (Label `maintenance`, genau eines, wird aktualisiert statt dupliziert).
   **Das Heben selbst bleibt Handarbeit**, samt Prüfung der Breaking Changes
   übersprungener Major-Versionen gegen die tatsächliche Nutzung.
-  Zuletzt geschehen: 2026-09-23 (setup-uv v10.0.1 -> v10.2.0; kein Breaking
-  Change — der neue `save-cache`-Default `auto` speichert bei `merge_group`
-  keinen Cache mehr, die Vorlage triggert nur auf `push`/`pull_request`).
+  Zuletzt geschehen: 2026-10-13 (setup-node v7.0.0 -> v7.1.0, setup-uv
+  v10.2.0 -> v10.3.0; kein Breaking Change — `action.yml` jeweils nur
+  additiv: mise.toml als `node-version-file`, neues Input `python-arch`;
+  die Vorlagen nutzen nur `node-version`/`cache` bzw. `enable-cache`).
 - Die Agenten-Tests im Selbsttest prüfen nur Struktur-Marker, nicht Verhalten
   — LLM-Ausgaben sind deterministisch nicht prüfbar.
 - `setup.sh --diff` erkennt Kern-Verfall nur, wenn es jemand ausführt.
