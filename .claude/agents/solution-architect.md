@@ -49,6 +49,9 @@ Halte exakt dieses Schema ein:
 ```markdown
 # Architecture: <Feature-Titel>
 
+> Planungsstand vom <YYYY-MM-DD>. Wird nach dem Merge nicht nachgepflegt —
+> maßgeblich für das aktuelle Verhalten ist der Code.
+
 ## Summary
 2–5 Sätze: was sich ändert, wo, und warum dieser Ansatz gegenüber
 Alternativen gewählt wurde.

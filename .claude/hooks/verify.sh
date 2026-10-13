@@ -94,15 +94,18 @@ fi
 # --- Stack 2: Python -----------------------------------------------------------
 if { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && printf '%s\n' "$CHANGED" | grep -Eq '\.py$|pyproject\.toml$'; then
   if [ -f uv.lock ] && command -v uv >/dev/null 2>&1; then
-    # uv-Projekt: Tools aus dem gepinnten Env, ohne implizites Sync.
-    if uv run --no-sync ruff --version >/dev/null 2>&1; then
-      run_gate "ruff check"        uv run --no-sync ruff check .
-      run_gate "ruff format check" uv run --no-sync ruff format --check .
+    # uv-Projekt: Tools aus dem gepinnten Env, ohne implizites Sync. `python -m`
+    # statt des nackten Binaries: `uv run --no-sync ruff` fand auch ein global
+    # installiertes ruff — die Gates liefen dann gegen ein Env ohne
+    # Projekt-Dependencies, und pytest scheiterte an Importen statt am Code.
+    if uv run --no-sync python -m ruff --version >/dev/null 2>&1; then
+      run_gate "ruff check"        uv run --no-sync python -m ruff check .
+      run_gate "ruff format check" uv run --no-sync python -m ruff format --check .
       if [ "${ONLY_LINT:-0}" != "1" ] && [ -d tests ]; then
-        run_gate "pytest" uv run --no-sync pytest -q
+        run_gate "pytest" uv run --no-sync python -m pytest -q
       fi
     else
-      echo "verify: dev-Deps fehlen — 'uv sync' ausführen. Python-Gates übersprungen." >&2
+      echo "verify: dev-Deps fehlen — 'uv sync --locked' ausführen (Dev-Extra: '--extra dev'). Python-Gates übersprungen." >&2
     fi
   else
     PY="python3"; command -v "$PY" >/dev/null 2>&1 || PY="python"

@@ -32,12 +32,26 @@ wäre schon Overhead.
 3. **Minimale Änderung.** Setze den kleinsten Fix um, der die Ursache
    behebt und den Test grün macht. Respektiere Konventionen und harte
    Grenzen aus `CLAUDE.md`. Keine Gelegenheits-Refactorings im selben Fix.
-4. **Verifikation läuft automatisch.** `verify.sh` (Stop-Hook) führt
+4. **Betroffene Spec nachtragen.** Ändert der Fix Verhalten, das eine Spec
+   unter `docs/features/*/requirements.md` beschreibt (Suche per `Grep` nach
+   geänderten Dateien, Funktionen, sichtbaren Texten), hänge dort einen
+   Einzeiler an — Abschnitt anlegen, falls er fehlt:
+
+   ```markdown
+   ## Nachträge
+   - <YYYY-MM-DD>: <was sich geändert hat, ein Satz> (`<Commit-Titel>`)
+   ```
+
+   Den Rest der Spec nie umschreiben: sie ist ein Planungsstand, der
+   Nachtrag nur der Hinweis, dass sie an dieser Stelle nicht mehr stimmt.
+   Reine Refactorings und interne Fixes ohne geändertes Verhalten brauchen
+   keinen Nachtrag. Ohne `docs/features/` entfällt der Schritt.
+5. **Verifikation läuft automatisch.** `verify.sh` (Stop-Hook) führt
    Lint/Typecheck/Tests aus und blockt, bis alles grün ist — nicht manuell
    duplizieren.
-5. **Commit.** Conventional Commit (`fix:` / `docs:` / `chore:` /
-   `refactor:`). Kein Artefakt unter `docs/features/` — das ist der
-   Pipeline vorbehalten.
+6. **Commit.** Conventional Commit (`fix:` / `docs:` / `chore:` /
+   `refactor:`), Nachtrag aus Schritt 4 im selben Commit. Kein neues
+   Artefakt unter `docs/features/` — das ist der Pipeline vorbehalten.
 
 ## Eskalation
 

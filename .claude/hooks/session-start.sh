@@ -10,8 +10,7 @@
 # Verhalten:
 #   * package.json + fehlende node_modules  -> npm ci (bzw. npm install ohne Lockfile)
 #   * uv.lock + nicht-synctes Env           -> uv sync --locked
-#     (Braucht das Projekt Dev-Extras für die Gates: hier auf
-#      `uv sync --locked --extra dev` anpassen.)
+#     (mit `--extra dev`, wenn pyproject.toml ein Dev-Extra definiert)
 #   * .githooks/pre-commit ohne core.hooksPath -> Verdrahtung setzen
 #
 # Blockiert NIE die Session: immer exit 0, Meldungen auf stderr.
@@ -39,11 +38,32 @@ fi
 
 # --- Python (uv) ----------------------------------------------------------------
 if [ -f uv.lock ] && command -v uv >/dev/null 2>&1; then
-  # Nur syncen, wenn das Env die Gates noch nicht bedienen kann.
-  if ! uv run --no-sync ruff --version >/dev/null 2>&1; then
-    echo "session-start: uv-Env fehlt/unvollständig — 'uv sync --locked' …" >&2
-    uv sync --locked >"$INSTALL_LOG" 2>&1 \
-      || echo "session-start: 'uv sync --locked' fehlgeschlagen — Details: $INSTALL_LOG (Gates laufen ggf. nicht)." >&2
+  # Liegen ruff/pytest in [project.optional-dependencies] dev, installiert
+  # `uv sync` sie nur mit --extra dev — ohne den Schalter fehlen die Gate-Tools
+  # nach dem Sync, und verify.sh überspringt still alle Gates. Die
+  # dependency-groups "dev" nimmt uv dagegen per Default mit; dort wäre
+  # --extra dev ein Fehler (uv bricht bei unbekanntem Extra ab).
+  UV_SYNC_ARGS="--locked"
+  if awk '/^\[/ { s = /^\[project\.optional-dependencies\]/ }
+          s && /^[[:space:]]*dev[[:space:]]*=/ { f = 1 }
+          END { exit !f }' pyproject.toml 2>/dev/null; then
+    UV_SYNC_ARGS="--locked --extra dev"
+  fi
+  # Nur syncen, wenn das Env die Gates noch nicht bedienen kann. `python -m`
+  # statt des nackten Binaries: `uv run --no-sync ruff` fand auch ein global
+  # installiertes ruff, hielt das Projekt-Env für vollständig, und der Sync
+  # unterblieb. pytest nur prüfen, wenn es Tests gibt — wie in verify.sh;
+  # sonst syncte jeder Session-Start ein Projekt ohne pytest erneut.
+  uv_gates_ready() {
+    uv run --no-sync python -m ruff --version >/dev/null 2>&1 || return 1
+    [ -d tests ] || return 0
+    uv run --no-sync python -m pytest --version >/dev/null 2>&1
+  }
+  if ! uv_gates_ready; then
+    echo "session-start: uv-Env fehlt/unvollständig — 'uv sync $UV_SYNC_ARGS' …" >&2
+    # shellcheck disable=SC2086  # bewusst wortgetrennt: "--locked [--extra dev]"
+    uv sync $UV_SYNC_ARGS >"$INSTALL_LOG" 2>&1 \
+      || echo "session-start: 'uv sync $UV_SYNC_ARGS' fehlgeschlagen — Details: $INSTALL_LOG (Gates laufen ggf. nicht)." >&2
   fi
 fi
 

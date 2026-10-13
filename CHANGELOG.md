@@ -25,6 +25,15 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   `session-start.sh`.
 - `setup.sh --doctor`: meldete falschen Kern-Verfall, wenn `setup.sh` kein
   Ausführungsbit hatte (interner Aufruf über `$0`).
+- `session-start.sh` / `verify.sh`: prüfen das uv-Env per `python -m ruff`
+  statt nacktem `ruff`. Ein global installiertes ruff täuschte ein
+  vollständiges Env vor: session-start syncte nicht, verify.sh ließ die Gates
+  gegen ein Env ohne Projekt-Dependencies laufen.
+- `session-start.sh`: erkennt ein Dev-Extra (`[project.optional-dependencies]
+  dev`) und synct mit `--extra dev`. Vorher fehlten ruff/pytest nach dem Sync,
+  und verify.sh übersprang still alle Python-Gates.
+- `secret-scan.yml`: `# pragma: allowlist secret` an `GITLEAKS_SHA256` —
+  Zielprojekte mit detect-secrets wurden mit dem Kern-Update rot.
 
 ### Changed
 
@@ -34,6 +43,11 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   der sie in einer Tabelle "Roadmap-Bezug" auf ACs abbildet, und der Punkt
   wird im PR abgehakt. Vorher konnte ein Roadmap-AK unbemerkt wegfallen, und
   der Punkt blieb nach dem Merge offen.
+- Feature-Specs (`requirements.md`, `architecture.md`) beginnen mit einem
+  Planungsstand-Vermerk: nicht nachgepflegt, maßgeblich ist der Code. `/fix`
+  hängt bei geändertem, spezifiziertem Verhalten einen Einzeiler unter
+  „Nachträge" an die Spec. Vorher hielt eine spätere Session eine veraltete
+  Spec für den Ist-Zustand.
 
 ## [1.0.0] — 2026-08-21
 

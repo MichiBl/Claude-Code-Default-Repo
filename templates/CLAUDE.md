@@ -148,7 +148,9 @@ Punkts in die Feature-Spec und hakt ihn im PR ab; bei `/fix` und direkten
 Nicht-triviale Features laufen über `/feature <beschreibung>` durch die
 Pipeline requirements-engineer → solution-architect → qa-engineer (Tests
 zuerst, RED) → Implementierung (Haupt-Agent) → code-reviewer → qa-engineer
-(GREEN) → Draft-PR. Artefakte liegen unter `docs/features/<slug>/`. Die
+(GREEN) → Draft-PR. Artefakte liegen unter `docs/features/<slug>/` — sie
+sind Planungsstände, kein gepflegter Ist-Zustand: maßgeblich ist der Code,
+spätere Verhaltensänderungen stehen als „Nachträge" in der Spec. Die
 RED-Tests entstehen vor der Implementierung und müssen rot sein — grün
 werden sie ausschließlich durch die Implementierung, nie durch Abschwächen.
 
