@@ -899,6 +899,19 @@ rc=0
 grep -q 'persist-credentials: false' "$ROOT/.github/workflows/core-drift.yml.example" || rc=1
 check "core-drift.yml.example legt keinen Token in .git/config ab" 0 "$rc"
 
+# Node 20 ist seit 2026-04-30 End-of-Life und bekommt keine Security-Releases
+# mehr — ein Zielprojekt hätte mit der Vorlage dauerhaft offene Lücken gebaut.
+# Die Schwelle 22 altert mit (EOL 2027-04) und muss dann mit der Vorlage
+# steigen. check-latest, weil ein Security-Patch Tage vor dem nächsten
+# Runner-Image im setup-node-Manifest liegt; ohne das Flag baut der Job still
+# mit dem alten Patch-Stand aus dem Toolcache weiter.
+WFN="$ROOT/.github/workflows/ci-node.yml.example"
+nv="$(sed -n 's/^[[:space:]]*node-version:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$WFN" | head -1)"
+rc=0; { [ -n "$nv" ] && [ "$nv" -ge 22 ]; } || rc=1
+check "ci-node.yml.example: Node-Linie ist nicht End-of-Life (>= 22, ist: ${nv:-?})" 0 "$rc"
+rc=0; grep -q '^[[:space:]]*check-latest: true' "$WFN" || rc=1
+check "ci-node.yml.example: setup-node zieht den neuesten Patch (check-latest)" 0 "$rc"
+
 # --- .github/dependabot.yml: cooldown ----------------------------------------------
 # Ein kompromittiertes Release hat am Erscheinungstag noch keinen CVE-Eintrag:
 # das Audit schweigt, die CI ist grün, und Dependabot macht brav einen PR darauf.

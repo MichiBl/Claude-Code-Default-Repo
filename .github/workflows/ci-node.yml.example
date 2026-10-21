@@ -36,7 +36,14 @@ jobs:
         # actions/setup-node v7.1.0
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 20
+          # Node 22 (Active LTS). Node 20 ist seit 2026-04-30 End-of-Life und
+          # bekommt keine Security-Releases mehr — ein Zielprojekt hätte damit
+          # dauerhaft mit offenen Lücken gebaut.
+          node-version: 22
+          # Ein Security-Patch liegt Tage vor dem nächsten Runner-Image im
+          # setup-node-Manifest; ohne check-latest nimmt der Job still den
+          # alten Patch-Stand aus dem Toolcache des Images.
+          check-latest: true
           cache: npm
 
       - name: Install dependencies
