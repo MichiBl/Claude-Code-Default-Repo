@@ -14,6 +14,11 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   `setup.sh` aus dem Template-Repo aus, das den Token sonst lesen könnte.
 - `protect-secrets.sh` blockt Schreibzugriffe von Claude auf `.gitleaks.toml`:
   sonst konnte Claude einen Fund selbst als Falsch-Positiv freigeben.
+- `ci-node.yml.example`: Node 20 -> 22 und `check-latest: true`. Node 20 ist
+  seit 2026-04-30 End-of-Life und bekam die Security-Releases vom 2026-10-21
+  nicht mehr; ohne `check-latest` baut setup-node bis zum nächsten
+  Runner-Image mit dem alten Patch-Stand aus dem Toolcache. Der Selbsttest
+  hält beides fest.
 
 ### Fixed
 
