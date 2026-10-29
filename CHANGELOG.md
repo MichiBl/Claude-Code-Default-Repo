@@ -42,8 +42,11 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 
 ### Changed
 
-- `ci-python-uv.yml.example`: `astral-sh/setup-uv` v10.0.1 -> v10.2.0 -> v10.3.0.
+- `ci-python-uv.yml.example`: `astral-sh/setup-uv` v10.0.1 -> v10.2.0 -> v10.3.0
+  -> v10.3.2.
 - `ci-node.yml.example`: `actions/setup-node` v7.0.0 -> v7.1.0.
+- `ci-python-pip.yml.example`, `ci-python-uv.yml.example`:
+  `actions/setup-python` v7.0.0 -> v7.1.0.
 - `/feature` ist mit der Roadmap `docs/requirements-status.md` verdrahtet:
   die AK des passenden Punkts gehen wörtlich an den `requirements-engineer`,
   der sie in einer Tabelle "Roadmap-Bezug" auf ACs abbildet, und der Punkt
