@@ -19,6 +19,12 @@ name: Template Pin Check
 # Third-Party-Actions verzichtet — eine unvertraute Abhaengigkeit weniger.
 # Fuer vier Pins ist ein Workflow aus Bordmitteln verhaeltnismaessig.
 #
+# Cooldown wie in dependabot.yml: ein Release gilt erst als faellig, wenn es
+# COOLDOWN_DAYS alt ist. Ohne das draengte ausgerechnet dieser Check dazu, ein
+# Release am Tag seiner Veroeffentlichung zu pinnen — den einen Fall, gegen den
+# Dependabot per `cooldown` schuetzt (kompromittiertes Release, noch ohne
+# CVE-Eintrag). Der Selbsttest haelt beide Werte gleich.
+#
 # Laeuft NUR in diesem Template-Repo (Repo-Guard unten) und wird von setup.sh
 # NICHT in Zielprojekte kopiert: dort gibt es keine *.yml.example zu pruefen.
 
@@ -49,6 +55,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       ISSUE_TITLE: "Veraltete Action-Pins in den CI-Vorlagen"
+      # Muss dem `cooldown.default-days` in .github/dependabot.yml entsprechen.
+      COOLDOWN_DAYS: 7
     steps:
       - name: Checkout
         # actions/checkout v7.0.1
@@ -64,6 +72,9 @@ jobs:
 
           outdated=""
           unresolved=""
+          cooling=""
+          now="$(date +%s)"
+          cutoff=$(( now - COOLDOWN_DAYS * 86400 ))
 
           while IFS= read -r pin; do
             [ -n "$pin" ] || continue
@@ -76,23 +87,57 @@ jobs:
             have="$(grep -rhoE "#[[:space:]]*${action}[[:space:]]+v[0-9][^[:space:]]*" \
                       .github/workflows/ | head -n1 | sed 's/.*[[:space:]]v/v/')"
 
-            tag="$(gh api "repos/${action}/releases/latest" --jq .tag_name 2>/dev/null || true)"
-            if [ -z "$tag" ]; then
+            releases="$(gh api "repos/${action}/releases?per_page=100" \
+              --jq '.[] | select(.draft == false and .prerelease == false) | "\(.published_at | fromdateiso8601) \(.tag_name)"' \
+              2>/dev/null || true)"
+            if [ -z "$releases" ]; then
               unresolved="${unresolved}- \`${action}\`: kein Release ueber die API abrufbar"$'\n'
               continue
             fi
 
+            # Faellig ist das hoechste Release jenseits des Cooldowns. Hoechstes
+            # nach Version, nicht nach Datum: ein spaeter veroeffentlichter
+            # Backport (v6.x nach v7.1) waere sonst "faellig" — ein Downgrade.
+            # Und nicht "latest, sobald es alt genug ist": bei einer Action, die
+            # oefter als woechentlich released, waere latest bei jedem Lauf zu
+            # frisch, und der Check meldete nie wieder etwas.
+            tag=""
+            fresh=""
+            while read -r published name; do
+              if [ "$published" -gt "$cutoff" ]; then
+                # Das juengste frische Release steht mit im Bericht, damit beim
+                # Heben niemand stattdessen zu ihm greift.
+                [ -n "$fresh" ] || fresh="${name} (Tag $(( (now - published) / 86400 )) von ${COOLDOWN_DAYS})"
+                continue
+              fi
+              tag="$name"
+              break
+            done <<< "$(printf '%s\n' "$releases" | sort -t ' ' -k2,2Vr)"
+
+            if [ -z "$tag" ]; then
+              cooling="${cooling}- \`${action}\`: ${fresh}, kein aelteres Release"$'\n'
+              continue
+            fi
+            [ -z "$fresh" ] || cooling="${cooling}- \`${action}\`: ${fresh}"$'\n'
+
             # /commits/<ref> loest sowohl leichtgewichtige als auch annotierte
             # Tags auf den Commit auf; /git/ref/tags/<tag> taete das nicht.
-            latest="$(gh api "repos/${action}/commits/${tag}" --jq .sha 2>/dev/null || true)"
-            if [ -z "$latest" ]; then
+            due="$(gh api "repos/${action}/commits/${tag}" --jq .sha 2>/dev/null || true)"
+            if [ -z "$due" ]; then
               unresolved="${unresolved}- \`${action}\`: Tag ${tag} nicht auf einen Commit aufloesbar"$'\n'
               continue
             fi
+            [ "$sha" != "$due" ] || continue
 
-            if [ "$sha" != "$latest" ]; then
-              outdated="${outdated}- \`${action}\` — gepinnt **${have:-?}** (\`${sha}\`), aktuell **${tag}** (\`${latest}\`)"$'\n'
-            fi
+            # Ein Pin NEUER als das faellige Release ist kein Rueckstand, sondern
+            # bewusst vorgezogen (Security-Fixes nimmt auch Dependabot vom
+            # Cooldown aus). Ohne diese Pruefung schluege der Check einen
+            # Downgrade vor. Jeder andere Status (behind, diverged, Fehler) wird
+            # gemeldet — lieber ein Issue zu viel als ein stiller Rueckstand.
+            status="$(gh api "repos/${action}/compare/${due}...${sha}" --jq .status 2>/dev/null || true)"
+            [ "$status" != "ahead" ] || continue
+
+            outdated="${outdated}- \`${action}\` — gepinnt **${have:-?}** (\`${sha}\`), faellig **${tag}** (\`${due}\`)${fresh:+; ${fresh} noch im Cooldown}"$'\n'
           done <<EOF
           $(grep -rhoE 'uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}' \
               .github/workflows/*.yml.example | sed 's/uses:[[:space:]]*//' | sort -u)
@@ -111,7 +156,15 @@ jobs:
               echo "$outdated"
             else
               echo
-              echo "Alle Pins in \`*.yml.example\` entsprechen dem neuesten Release."
+              echo "Alle Pins in \`*.yml.example\` entsprechen dem neuesten faelligen Release."
+            fi
+            # Zurueckgehaltene Releases bleiben sichtbar: ein Cooldown, den man
+            # nicht sieht, waere von einem kaputten Check nicht zu unterscheiden.
+            if [ -n "$cooling" ]; then
+              echo
+              echo "### Im Cooldown (juenger als ${COOLDOWN_DAYS} Tage, noch nicht faellig)"
+              echo
+              echo "$cooling"
             fi
             if [ -n "$unresolved" ]; then
               echo
@@ -136,7 +189,7 @@ jobs:
           body="$(printf '%s\n%s\n%s\n' \
             "Dependabot parst \`*.yml.example\` nicht — diese Pins altern still und werden von jedem daraus erzeugten Projekt geerbt." \
             "$outdated" \
-            "Beheben: SHA **und** Versionskommentar in allen betroffenen Vorlagen heben, Breaking Changes der uebersprungenen Versionen gegen die tatsaechliche Nutzung pruefen. Zuletzt geprueft: siehe Known Issues in CLAUDE.md.")"
+            "Beheben: SHA **und** Versionskommentar in allen betroffenen Vorlagen auf die faellige Version heben, Breaking Changes der uebersprungenen Versionen gegen die tatsaechliche Nutzung pruefen. Releases juenger als ${COOLDOWN_DAYS} Tage gelten noch nicht als faellig (Cooldown wie in dependabot.yml). Zuletzt geprueft: siehe Known Issues in CLAUDE.md.")"
 
           # Label kann fehlen, wenn es nie angelegt wurde — dann waere
           # `issue create --label` ein harter Fehlschlag.

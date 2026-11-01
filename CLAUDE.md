@@ -150,6 +150,9 @@ Augenmaß anwenden.
   den weder Audit noch CVE-Alert sehen: ein kompromittiertes Release am Tag
   seiner Veröffentlichung. Security-Updates sind ausgenommen und kommen
   weiterhin sofort. Der Selbsttest erzwingt die Anwesenheit, nicht die Tage.
+  Für die Vorlagen-Pins, die Dependabot nicht sieht, hält
+  `template-pin-check.yml` denselben Wert (`COOLDOWN_DAYS`) — die Gleichheit
+  erzwingt der Selbsttest.
 
 ## Build & Dev Commands
 
@@ -232,8 +235,10 @@ plus Assertion, also `/fix`-Format. Was immer gilt:
 - `hook-selftest.yml` — shellcheck + `tests/hook-selftest.sh`. Läuft per
   Repo-Guard nur in diesem Repo.
 - `template-pin-check.yml` — wöchentlich; prüft die Action-Pins der
-  `*.yml.example` gegen die neuesten Upstream-Releases und meldet Abweichungen
-  als Issue. Repo-Guard, einziger Workflow mit `issues: write`.
+  `*.yml.example` gegen das höchste Upstream-Release (nach Version, nicht
+  Datum), das älter als der Cooldown ist, und meldet Rückstände als Issue.
+  Frischere Releases stehen nur in der Step-Summary. Repo-Guard, einziger
+  Workflow mit `issues: write`.
 - `ci-*.yml.example` und `core-drift.yml.example` sind Vorlagen für
   Zielprojekte und laufen hier nicht.
 
@@ -243,8 +248,9 @@ Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
 
 - Die Pins in `*.yml.example` altern weiter still — Dependabot parst diese
   Dateien nicht —, aber es fällt jetzt auf: `template-pin-check.yml` vergleicht
-  wöchentlich gegen die Upstream-Releases und öffnet bei Abweichung ein Issue
-  (Label `maintenance`, genau eines, wird aktualisiert statt dupliziert).
+  wöchentlich gegen die Upstream-Releases jenseits des Cooldowns und öffnet
+  bei Rückstand ein Issue (Label `maintenance`, genau eines, wird
+  aktualisiert statt dupliziert).
   **Das Heben selbst bleibt Handarbeit**, samt Prüfung der Breaking Changes
   übersprungener Major-Versionen gegen die tatsächliche Nutzung.
   Zuletzt geschehen: 2026-10-29 (setup-python v7.0.0 -> v7.1.0, setup-uv
