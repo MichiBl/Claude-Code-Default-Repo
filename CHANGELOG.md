@@ -19,6 +19,13 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   nicht mehr; ohne `check-latest` baut setup-node bis zum nächsten
   Runner-Image mit dem alten Patch-Stand aus dem Toolcache. Der Selbsttest
   hält beides fest.
+- `template-pin-check.yml`: hält denselben 7-Tage-Cooldown wie
+  `dependabot.yml`. Fällig ist das höchste Release (nach Version), das älter
+  ist; frischere stehen nur in der Step-Summary. Vorher meldete der Check
+  jedes Release ab dem ersten Tag und drängte so zu genau dem Pin, gegen den
+  der Cooldown schützt. Ein bewusst vorgezogener Pin (Security-Fix) gilt
+  nicht als Rückstand, ein später veröffentlichter Backport nicht als fällig.
+  Der Selbsttest führt den echten `run:`-Block gegen einen gh-Stub aus.
 
 ### Fixed
 

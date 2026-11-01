@@ -928,6 +928,105 @@ rc=0; { [ "$n_eco" -gt 0 ] && [ "$n_eco" -eq "$n_cool" ]; } || rc=1
 check "jeder package-ecosystem-Block hat cooldown" 0 "$rc"
 [ "$rc" -eq 0 ] || printf '      %s Ökosystem-Blöcke, aber %s cooldown\n' "$n_eco" "$n_cool"
 
+# --- template-pin-check.yml: Cooldown ----------------------------------------------
+# Die Vorlagen-Pins sieht Dependabot nicht; der Pin-Check ist ihr Ersatz und
+# muss denselben Cooldown einhalten — sonst drängt er dazu, ein Release am Tag
+# seiner Veröffentlichung zu pinnen. Getestet wird der echte run:-Block aus
+# dem YAML gegen einen gh-Stub, keine Kopie der Logik.
+echo "== template-pin-check.yml: Cooldown =="
+PCW="$ROOT/.github/workflows/template-pin-check.yml"
+
+pc_days="$(sed -n 's/^[[:space:]]*COOLDOWN_DAYS:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$PCW")"
+dbot_days="$(sed -n 's/^[[:space:]]*default-days:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$dbot" | head -1)"
+rc=0; { [ -n "$pc_days" ] && [ "$pc_days" = "$dbot_days" ]; } || rc=1
+check "Pin-Check-Cooldown = dependabot.yml (${pc_days:-?} / ${dbot_days:-?} Tage)" 0 "$rc"
+
+# run:-Block ausschneiden und um seine Einrückung kürzen — so, wie Actions
+# ihn an bash übergibt. Er endet an der ersten weniger eingerückten Zeile.
+PC_SCRIPT="$TMP/pin-check.sh"
+in_block=0; ind=""
+while IFS= read -r line; do
+  if [ "$in_block" -eq 0 ]; then
+    case "$line" in *"run: |"*) in_block=1 ;; esac
+    continue
+  fi
+  [ -n "$ind" ] || [ -z "$line" ] || ind="${line%%[! ]*}"
+  case "$line" in
+    "") echo ;;
+    "$ind"*) echo "${line#"$ind"}" ;;
+    *) break ;;
+  esac
+done < "$PCW" > "$PC_SCRIPT"
+
+h40() { local s="$1$1$1$1$1$1$1$1$1$1"; printf '%s' "$s$s$s$s"; }
+
+# Drei Actions, drei Fälle (veröffentlicht: 1 = uralt, FRESH = vor 1,5 Tagen):
+#   fresh  — gepinnt v1.0.0, v1.1.0 im Cooldown          -> nichts fällig
+#   behind — gepinnt v1.0.0, v1.1.0 alt, v1.2.0 frisch,
+#            dazu ein später veröffentlichter Backport v0.9.1 -> v1.1.0 fällig
+#   early  — gepinnt v1.1.0 (frisch), vorgezogen          -> kein Rückstand
+pcd="$TMP/pincheck"; mkdir -p "$pcd/.github/workflows"
+cat > "$pcd/.github/workflows/pins.yml.example" <<EOF
+      # acme/fresh v1.0.0
+      - uses: acme/fresh@$(h40 1)
+      # acme/behind v1.0.0
+      - uses: acme/behind@$(h40 3)
+      # acme/early v1.1.0
+      - uses: acme/early@$(h40 7)
+EOF
+
+# Der Stub ersetzt GitHub, nicht gojq: er antwortet so, wie `gh api --jq`
+# NACH dem Filter ausgibt. Der Issue-Body landet in einer Datei — er ist der
+# Befund, den ein Mensch zu sehen bekommt. FRESH liegt 1,5 Tage zurück, nicht
+# genau einen: das Skript liest die Uhr vor dem Stub, ein Sekundensprung
+# dazwischen ergäbe sonst "Tag 0".
+PC_BIN="$TMP/pincheck-bin"; mkdir -p "$PC_BIN"
+cat > "$PC_BIN/gh" <<'GHSTUB'
+#!/usr/bin/env bash
+h40() { local s="$1$1$1$1$1$1$1$1$1$1"; printf '%s' "$s$s$s$s"; }
+FRESH=$(( $(date +%s) - 129600 ))
+case "$1 ${2:-}" in
+  "api repos/acme/fresh/releases?per_page=100")  printf '%s\n' "1 v1.0.0" "$FRESH v1.1.0" ;;
+  "api repos/acme/behind/releases?per_page=100") printf '%s\n' "2 v1.1.0" "$FRESH v1.2.0" "3 v0.9.1" "1 v1.0.0" ;;
+  "api repos/acme/early/releases?per_page=100")  printf '%s\n' "1 v1.0.0" "$FRESH v1.1.0" ;;
+  "api repos/acme/fresh/commits/v1.0.0")  h40 1 ;;
+  "api repos/acme/behind/commits/v1.1.0") h40 4 ;;
+  "api repos/acme/early/commits/v1.0.0")  h40 6 ;;
+  "api repos/acme/early/compare/$(h40 6)...$(h40 7)") echo ahead ;;
+  "api repos/acme/"*"/compare/"*) echo behind ;;
+  "issue create"|"issue edit") cat > "$PC_BODY" ;;
+  *) ;;   # issue list: kein offenes Issue; label create: still
+esac
+GHSTUB
+chmod +x "$PC_BIN/gh"
+
+PC_BODY="$TMP/pincheck-body.md"; PC_SUM="$TMP/pincheck-summary.md"
+: > "$PC_BODY"; : > "$PC_SUM"
+# Der Workflow läuft nur auf ubuntu-Runnern und darf GNU-`sort -V` nutzen. Ein
+# sort ohne Versionssortierung (ältere macOS) ist kein Defekt des Workflows.
+if printf '%s\n' "x v1.9.0" "x v1.10.0" | sort -t ' ' -k2,2Vr 2>/dev/null \
+     | head -n1 | grep -qx 'x v1.10.0'; then
+  rc=0
+  if [ -s "$PC_SCRIPT" ]; then
+    (cd "$pcd" && env PATH="$PC_BIN:$PATH" PC_BODY="$PC_BODY" GITHUB_STEP_SUMMARY="$PC_SUM" \
+       ISSUE_TITLE="Pin-Check-Fixture" COOLDOWN_DAYS="${pc_days:-7}" \
+       bash "$PC_SCRIPT") >/dev/null 2>&1 || rc=$?
+  else
+    rc=1
+  fi
+  check "Pin-Check: run:-Block läuft gegen den gh-Stub durch" 0 "$rc"
+  body="$(cat "$PC_BODY")"; summary="$(cat "$PC_SUM")"
+  check_contains "Pin-Check: Rückstand nennt das höchste Release jenseits des Cooldowns, nicht den Backport" \
+    "\`acme/behind\` — gepinnt **v1.0.0** (\`$(h40 3)\`), faellig **v1.1.0**" "$body"
+  check_contains "Pin-Check: das frischere Release steht als Cooldown dabei" \
+    "v1.2.0 (Tag 1 von ${pc_days:-7}) noch im Cooldown" "$body"
+  check_absent "Pin-Check: frisches Release ist noch nicht fällig" "acme/fresh" "$body"
+  check_absent "Pin-Check: bewusst vorgezogener Pin ist kein Rückstand" "acme/early" "$body"
+  check_contains "Pin-Check: Cooldown bleibt in der Step-Summary sichtbar" "\`acme/fresh\`: v1.1.0 (Tag 1" "$summary"
+else
+  skip "sort ohne -V — Pin-Check-Verhaltenstest übersprungen (CI führt ihn aus)."
+fi
+
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),
 # sondern dass ihre tragenden Regeln/Schema-Abschnitte bei späteren Edits
