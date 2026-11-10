@@ -311,7 +311,9 @@ Begründungskommentar in die `.gitleaks.toml`-Allowlist — eingetragen vom
 Menschen, `protect-secrets.sh` blockt Claude dort. Auf PRs prüft die
 CI mit der Allowlist des Base-Branches, nicht der des PRs — sonst könnte ein
 PR sein eigenes Secret freigeben; eine Allowlist-Änderung kommt deshalb als
-eigener PR vor dem eigentlichen. Die deny-Regeln
+eigener PR vor dem eigentlichen. Die Allowlist ist der einzige Freigabeweg: `gitleaks:allow`-Kommentare
+ignorieren alle Schichten, und `.gitleaksignore` ist für Claude gesperrt wie
+die Allowlist (auf PRs gilt auch hier die des Base-Branches). Die deny-Regeln
 davor decken `.env`-Varianten (auch in Unterordnern), Keys und `secrets/`
 ab — bewusst als Aufzählung statt `.env.*`, damit `.env.example` lesbar
 bleibt und Claude die Vorlage pflegen kann. Eine exotische Variante

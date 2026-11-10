@@ -50,7 +50,8 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
   # Leerer Range (Remote hat schon alles): nichts zu tun.
   [ -z "$reachable" ] && continue
 
-  if ! gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} --log-opts "$LOG_OPTS" .; then
+  # --ignore-gitleaks-allow: siehe pre-commit — Freigaben nur per .gitleaks.toml.
+  if ! gitleaks git --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} --log-opts "$LOG_OPTS" .; then
     STATUS=1
   fi
 done

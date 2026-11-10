@@ -164,6 +164,9 @@ check "kaputte Payload fällt offen durch"  0 "$(hook_exit "$PS" 'kein json')"
 # Die Allowlist steuert, was alle gitleaks-Schichten durchlassen — Claude
 # könnte sonst einen Fund selbst "als Falsch-Positiv" freigeben.
 check ".gitleaks.toml wird geblockt"       2 "$(hook_exit "$PS" "$(payload_write /proj/.gitleaks.toml)")"
+# .gitleaksignore ist der zweite Hebel derselben Sorte: ein Fingerprint dort
+# gibt einen Fund genauso frei wie ein Allowlist-Eintrag.
+check ".gitleaksignore wird geblockt"      2 "$(hook_exit "$PS" "$(payload_write /proj/.gitleaksignore)")"
 
 # Ohne Interpreter muss der Hook weiter blocken UND es sagen — vorher fiel er
 # hier lautlos mit exit 0 durch.
@@ -287,6 +290,43 @@ if command -v gitleaks >/dev/null 2>&1; then
   check "git commit -am mit nicht gestagtem Fake-Key wird geblockt" 2 \
     "$(hook_exit_in "$AM" "$SS" "$(payload_bash 'git commit -am wip')")"
 
+  # Regression: `git add x && git commit` in EINEM Befehl. Der Hook läuft vor
+  # dem Befehl — die Datei ist dann weder gestagt noch getrackt, --staged und
+  # --pre-commit sahen sie beide nicht. Die üblichste Art, wie Claude committet.
+  ADD="$(mkfix scanadd)"
+  git_t -C "$ADD" commit -q --allow-empty -m init
+  printf 'aws_access_key_id = %s\n' "$AWS_FAKE" > "$ADD/config.txt"
+  check "git add && git commit mit ungetracktem Fake-Key wird geblockt" 2 \
+    "$(hook_exit_in "$ADD" "$SS" "$(payload_bash 'git add config.txt && git commit -m wip')")"
+  # Der Scan läuft über einen Wegwerf-Index — der echte darf danach nichts
+  # gestagt haben, sonst committete der nächste Befehl mehr als verlangt.
+  rc=0; [ -z "$(git -C "$ADD" diff --cached --name-only)" ] || rc=1
+  check "Scan der ungetrackten Dateien lässt den echten Index unberührt" 0 "$rc"
+  ADDOK="$(mkfix scanaddok)"
+  git_t -C "$ADDOK" commit -q --allow-empty -m init
+  echo "nur text" > "$ADDOK/notes.txt"
+  check "git add && git commit ohne Secret bleibt erlaubt" 0 \
+    "$(hook_exit_in "$ADDOK" "$SS" "$(payload_bash 'git add notes.txt && git commit -m wip')")"
+
+  # Regression: ein `gitleaks:allow`-Kommentar auf der Secret-Zeile gab den
+  # Fund in ALLEN Schichten frei — an der .gitleaks.toml-Sperre vorbei.
+  ALLOW="$(mkfix scanallow)"
+  echo "nur text" > "$ALLOW/notes.txt"
+  git -C "$ALLOW" add notes.txt
+  git_t -C "$ALLOW" commit -q -m init
+  ALLOW_BASE="$(git -C "$ALLOW" rev-parse HEAD)"
+  printf 'aws_access_key_id = %s  # gitleaks:allow\n' "$AWS_FAKE" > "$ALLOW/config.txt"
+  git -C "$ALLOW" add config.txt
+  check "secret-scan.sh ignoriert gitleaks:allow" 2 \
+    "$(hook_exit_in "$ALLOW" "$SS" "$(payload_bash 'git commit -m test')")"
+  rc=0; (cd "$ALLOW" && bash "$ROOT/.githooks/pre-commit") >/dev/null 2>&1 || rc=$?
+  check "pre-commit ignoriert gitleaks:allow" 1 "$rc"
+  git_t -C "$ALLOW" commit -q -m leak
+  rc=0
+  printf 'refs/heads/main %s refs/heads/main %s\n' "$(git -C "$ALLOW" rev-parse HEAD)" "$ALLOW_BASE" \
+    | (cd "$ALLOW" && bash "$ROOT/.githooks/pre-push" origin dummy-url) >/dev/null 2>&1 || rc=$?
+  check "pre-push ignoriert gitleaks:allow" 1 "$rc"
+
   echo "== .githooks/pre-commit =="
   rc=0; (cd "$HOT" && bash "$ROOT/.githooks/pre-commit") >/dev/null 2>&1 || rc=$?
   check "pre-commit blockt gestagtes Secret" 1 "$rc"
@@ -389,6 +429,32 @@ if command -v npm >/dev/null 2>&1; then
 else
   skip "npm nicht installiert — session-start-Tests übersprungen."
 fi
+
+# npm-Stub: protokolliert die Argumente und scheitert. Ohne Lockfile löst
+# `npm install` die neuesten Versionen auf und führte deren Install-Skripte
+# ungefragt aus — der Fall, gegen den der Dependabot-Cooldown gebaut ist.
+NPMSTUB_BIN="$TMP/npmstub-bin"; mkdir -p "$NPMSTUB_BIN"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$NPM_LOG"\nexit 1\n' > "$NPMSTUB_BIN/npm"
+chmod +x "$NPMSTUB_BIN/npm"
+d="$TMP/ss-nolock"; mkdir -p "$d" "$TMP/ss-tmp"
+printf '{}' > "$d/package.json"
+: > "$TMP/npm.log"; RC=0
+env PATH="$NPMSTUB_BIN:$PATH" NPM_LOG="$TMP/npm.log" TMPDIR="$TMP/ss-tmp" CLAUDE_PROJECT_DIR="$d" \
+  bash "$SST" >/dev/null 2>"$TMP/stderr.txt" </dev/null || RC=$?
+ERR="$(cat "$TMP/stderr.txt")"
+check "ohne Lockfile: session-start blockiert nie" 0 "$RC"
+check_contains "ohne Lockfile: npm install läuft ohne Install-Skripte" "--ignore-scripts" "$(cat "$TMP/npm.log")"
+check_contains "ohne Lockfile: die Einschränkung wird gemeldet" "ohne Install-Skripte" "$ERR"
+# Fester Name in /tmp: auf einem Mehrbenutzer-System kann ein anderer Nutzer
+# dort vorab einen Symlink ablegen, den der Hook dann überschreibt.
+rc=0; [ ! -e "$TMP/ss-tmp/claude-session-start-install.log" ] || rc=1
+check "Install-Log liegt nicht unter einem vorhersagbaren Namen" 0 "$rc"
+d="$TMP/ss-lock"; mkdir -p "$d"
+printf '{}' > "$d/package.json"; printf '{}' > "$d/package-lock.json"
+: > "$TMP/npm.log"
+env PATH="$NPMSTUB_BIN:$PATH" NPM_LOG="$TMP/npm.log" CLAUDE_PROJECT_DIR="$d" \
+  bash "$SST" >/dev/null 2>&1 </dev/null || true
+check_absent "mit Lockfile: npm ci behält die Install-Skripte" "--ignore-scripts" "$(cat "$TMP/npm.log")"
 
 # core.hooksPath steht in .git/config und wird nicht mitversioniert — nach jedem
 # frischen Klon muss der Hook sich selbst verdrahten, sonst läuft der
@@ -858,6 +924,15 @@ for needle in .env .pem .key .p12 .pfx id_rsa id_ed25519 credentials service-acc
 done
 check "jedes Secret-Muster in deny + protect-secrets + .gitignore" 0 "$rc"
 
+# Die Read-Sperre kann .env.* nicht pauschal sperren (.env.example muss lesbar
+# bleiben, deny kennt keine Ausnahme) und ist deshalb eine Aufzählung. Die
+# gängigen Kurznamen fehlten darin: .env.prod war lesbar, .env.production nicht.
+rc=0
+for v in prod dev stage preview backup bak; do
+  grep -qF "Read(./**/.env.$v)" "$ROOT/.claude/settings.json" || { echo "      ✗ .env.$v fehlt in den deny-Regeln"; rc=1; }
+done
+check "deny-Regeln decken die gängigen .env-Kurznamen" 0 "$rc"
+
 # --- gitleaks-Binary-Pin (Version + SHA-256) ---------------------------------------
 # Der im Workflow gepinnte Hash ist die einzige Schicht, die ein
 # kompromittiertes Release erkennt — die checksums.txt des Releases käme aus
@@ -892,6 +967,15 @@ rc=0
 grep -q 'BASE_REF: ${{ github.base_ref }}' "$WF1" || rc=1
 grep -q 'git show "origin/${BASE_REF}:.gitleaks.toml"' "$WF1" || rc=1
 check "secret-scan.yml nutzt auf PRs die .gitleaks.toml des Base-Branches" 0 "$rc"
+
+# Drei weitere Wege an derselben Sperre vorbei, alle im selben Step:
+# gitleaks:allow-Kommentare, die .gitleaksignore des PRs, und — hat die Basis
+# keine .gitleaks.toml — die des PRs, die gitleaks ohne --config selbst lädt.
+rc=0
+grep -q -- '--ignore-gitleaks-allow' "$WF1" || rc=1
+grep -q 'git show "origin/${BASE_REF}:.gitleaksignore"' "$WF1" || rc=1
+grep -q 'useDefault = true' "$WF1" || rc=1
+check "secret-scan.yml: kein Freigeben per gitleaks:allow, .gitleaksignore oder PR-Config" 0 "$rc"
 
 # core-drift führt setup.sh aus einem fremden Repo aus. Ein in .git/config
 # abgelegter GITHUB_TOKEN wäre für diesen Code lesbar.
@@ -1026,6 +1110,13 @@ if printf '%s\n' "x v1.9.0" "x v1.10.0" | sort -t ' ' -k2,2Vr 2>/dev/null \
 else
   skip "sort ohne -V — Pin-Check-Verhaltenstest übersprungen (CI führt ihn aus)."
 fi
+
+# Die Issue-Suche lief nur über den Titel: in einem öffentlichen Repo kann
+# jeder ein Issue mit diesem Titel öffnen, das der Workflow dann überschreibt
+# oder schließt. Den jq-Filter wertet gh selbst aus — der Stub kann ihn nicht
+# nachbilden, deshalb nur die Anwesenheit.
+rc=0; grep -q 'select(.author.is_bot)' "$PCW" || rc=1
+check "Pin-Check: fasst nur von einem Bot angelegte Issues an" 0 "$rc"
 
 # --- Agenten-Regeln (Struktur) -----------------------------------------------------
 # Testet nicht das VERHALTEN der Agenten (LLM — deterministisch nicht prüfbar),

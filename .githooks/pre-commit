@@ -25,7 +25,10 @@ fi
 CONFIG_OPT=""
 [ -f .gitleaks.toml ] && CONFIG_OPT="--config=.gitleaks.toml"
 
-if ! gitleaks git --staged --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"}; then
+# --ignore-gitleaks-allow: ein `gitleaks:allow`-Kommentar auf der Secret-Zeile
+# gäbe den Fund sonst frei — an der .gitleaks.toml vorbei, die allein über
+# Falsch-Positive entscheidet.
+if ! gitleaks git --staged --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"}; then
   echo ""
   echo "✗ gitleaks hat ein potenzielles Secret in den gestagten Änderungen gefunden — Commit blockiert."
   echo "  Entfernen und stattdessen über eine Umgebungsvariable / einen Secret-Store laden."
