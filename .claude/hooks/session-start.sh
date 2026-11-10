@@ -8,7 +8,8 @@
 # Lokal ist der Hook ein No-op, sobald die Deps einmal installiert sind.
 #
 # Verhalten:
-#   * package.json + fehlende node_modules  -> npm ci (bzw. npm install ohne Lockfile)
+#   * package.json + fehlende node_modules  -> npm ci (ohne Lockfile: npm install
+#     --ignore-scripts)
 #   * uv.lock + nicht-synctes Env           -> uv sync --locked
 #     (mit `--extra dev`, wenn pyproject.toml ein Dev-Extra definiert)
 #   * .githooks/pre-commit ohne core.hooksPath -> Verdrahtung setzen
@@ -22,16 +23,34 @@ cd "$ROOT" || exit 0
 
 # Install-Output landet in einer Logdatei statt in /dev/null: schlägt der
 # Install fehl, wäre der Grund sonst weg und die Fehlersuche beginnt bei null.
-INSTALL_LOG="${TMPDIR:-/tmp}/claude-session-start-install.log"
+# Erst bei Bedarf und in einem frischen mktemp-Verzeichnis: ein fester Name
+# direkt in /tmp ließe sich auf einem Mehrbenutzer-System von einem anderen
+# Nutzer als Symlink vorbelegen, den der Install dann überschreibt.
+INSTALL_LOG=""
+new_install_log() {
+  local dir
+  if dir="$(mktemp -d "${TMPDIR:-/tmp}/claude-session-start.XXXXXX" 2>/dev/null)"; then
+    INSTALL_LOG="$dir/session-start-install.log"
+  else
+    INSTALL_LOG="/dev/null"
+  fi
+}
 
 # --- Node ----------------------------------------------------------------------
 if [ -f package.json ] && [ ! -d node_modules ] && command -v npm >/dev/null 2>&1; then
   echo "session-start: node_modules fehlt — installiere Dependencies …" >&2
+  new_install_log
   if [ -f package-lock.json ]; then
     npm ci --no-audit --no-fund >"$INSTALL_LOG" 2>&1 \
       || echo "session-start: 'npm ci' fehlgeschlagen — Details: $INSTALL_LOG (Gates laufen ggf. nicht; manuell 'npm install' ausführen)." >&2
   else
-    npm install --no-audit --no-fund >"$INSTALL_LOG" 2>&1 \
+    # Ohne Lockfile löst npm die NEUESTEN Versionen auf — auch ein heute
+    # veröffentlichtes, kompromittiertes Release — und führte dessen
+    # Install-Skripte ungefragt auf einer Maschine mit .env aus. Mit Lockfile
+    # (oben) sind die Versionen festgeschrieben und geprüft, dort bleiben die
+    # Skripte an.
+    echo "session-start: kein package-lock.json — 'npm install' läuft ohne Install-Skripte (--ignore-scripts). Braucht ein Paket seinen Build-Schritt: Lockfile committen oder 'npm rebuild' von Hand." >&2
+    npm install --ignore-scripts --no-audit --no-fund >"$INSTALL_LOG" 2>&1 \
       || echo "session-start: 'npm install' fehlgeschlagen — Details: $INSTALL_LOG (Gates laufen ggf. nicht)." >&2
   fi
 fi
@@ -61,6 +80,7 @@ if [ -f uv.lock ] && command -v uv >/dev/null 2>&1; then
   }
   if ! uv_gates_ready; then
     echo "session-start: uv-Env fehlt/unvollständig — 'uv sync $UV_SYNC_ARGS' …" >&2
+    [ -n "$INSTALL_LOG" ] || new_install_log
     # shellcheck disable=SC2086  # bewusst wortgetrennt: "--locked [--extra dev]"
     uv sync $UV_SYNC_ARGS >"$INSTALL_LOG" 2>&1 \
       || echo "session-start: 'uv sync $UV_SYNC_ARGS' fehlgeschlagen — Details: $INSTALL_LOG (Gates laufen ggf. nicht)." >&2

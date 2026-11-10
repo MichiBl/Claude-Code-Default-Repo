@@ -174,8 +174,12 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # Nur ein von einem Bot angelegtes Issue anfassen: nach dem Titel
+          # allein traefe die Suche auch ein Issue, das irgendwer mit diesem
+          # Titel geoeffnet hat — der Workflow ueberschriebe oder schloesse es.
           existing="$(gh issue list --state open --search "$ISSUE_TITLE in:title" \
-                        --json number --jq '.[0].number // empty')"
+                        --json number,author \
+                        --jq '[.[] | select(.author.is_bot)][0].number // empty')"
 
           if [ -z "$outdated" ]; then
             if [ -n "$existing" ]; then

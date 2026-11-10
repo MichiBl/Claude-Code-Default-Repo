@@ -205,6 +205,13 @@ Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar —
 einzutragen vom Menschen, `protect-secrets.sh` blockt Claude dort. Auf
 PRs prüft die CI mit der Allowlist des Base-Branches, nicht der des PRs —
 eine Allowlist-Änderung kommt deshalb als eigener PR vor dem eigentlichen.
+Die Allowlist ist der einzige Freigabeweg: `gitleaks:allow`-Kommentare
+ignorieren alle Schichten (`--ignore-gitleaks-allow`), und `.gitleaksignore`
+ist für Claude gesperrt wie die Allowlist; auf PRs gilt die des Base-Branches.
+Bewusst NICHT gesperrt sind die Hooks selbst, `.claude/settings.json` und
+`secret-scan.yml` — Claude pflegt sie. Ein Agent (oder PR), der sie
+entschärft, hebelt die Schichten aus; sichtbar wird das nur im Diff-Review
+und, für KERN-Dateien, über `--diff`/`core-drift`.
 `.env.example` ist der bewusste blinde Fleck aller gitleaks-Schichten — dort
 dürfen NUR Platzhalter stehen. Deshalb ist es auch die einzige Datei, die
 `protect-secrets.sh` als editierbare Vorlage durchlässt.

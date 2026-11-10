@@ -26,6 +26,29 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   der Cooldown schützt. Ein bewusst vorgezogener Pin (Security-Fix) gilt
   nicht als Rückstand, ein später veröffentlichter Backport nicht als fällig.
   Der Selbsttest führt den echten `run:`-Block gegen einen gh-Stub aus.
+- Alle gitleaks-Schichten (`secret-scan.sh`, `pre-commit`, `pre-push`,
+  `secret-scan.yml`) laufen mit `--ignore-gitleaks-allow`. Ein
+  `gitleaks:allow`-Kommentar auf der Secret-Zeile gab den Fund überall frei —
+  auch im harten CI-Gate, an der `.gitleaks.toml`-Sperre vorbei. **Wer den
+  Kommentar bisher für Falsch-Positive nutzt, muss sie in die
+  `.gitleaks.toml`-Allowlist übertragen.**
+- `.gitleaksignore`: `protect-secrets.sh` blockt Claude dort, und
+  `secret-scan.yml` ersetzt sie auf PRs durch die des Base-Branches.
+- `secret-scan.yml`: hat der Base-Branch keine `.gitleaks.toml`, werden die
+  Defaults ausdrücklich übergeben. Ohne `--config` lud gitleaks die des PRs.
+- `secret-scan.sh`: steht im selben Befehl ein `git add`, werden auch
+  ungetrackte Dateien gescannt (über einen Wegwerf-Index). `git add x && git
+  commit` kam mit einem Secret an der Claude-Schicht vorbei.
+- `session-start.sh`: ohne `package-lock.json` läuft `npm install` mit
+  `--ignore-scripts` — sonst führte der Session-Start die Install-Skripte
+  tagesfrischer Releases ungefragt aus. Mit Lockfile (`npm ci`) unverändert.
+  Das Install-Log liegt in einem `mktemp`-Verzeichnis statt unter festem
+  Namen in `/tmp`.
+- `settings.json`: Read-Sperre auch für `.env.prod`, `.dev`, `.stage`,
+  `.preview`, `.backup`, `.bak`. PROJEKT-Datei — bestehende Projekte ziehen
+  die Zeilen von Hand nach.
+- `template-pin-check.yml`: fasst nur von einem Bot angelegte Issues an; die
+  Titelsuche traf auch ein von Dritten geöffnetes Issue.
 
 ### Fixed
 

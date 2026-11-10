@@ -91,7 +91,10 @@ esac
 # Claude sie ändern, kann es einen Fund "als Falsch-Positiv" freigeben, und
 # pre-commit, pre-push und secret-scan.sh lassen das Secret bis ins Remote
 # durch. Allowlist-Einträge sind deshalb Sache des Menschen.
-if [ "$BASE" = ".gitleaks.toml" ]; then
+# .gitleaksignore ist derselbe Hebel in anderer Form: ein Fingerprint dort
+# unterdrückt den Fund, und gitleaks kennt keinen Schalter, die Datei zu
+# ignorieren.
+if [ "$BASE" = ".gitleaks.toml" ] || [ "$BASE" = ".gitleaksignore" ]; then
   {
     echo "🔒 protect-secrets: '$FILE' ist die Allowlist der Secret-Scans und wird nicht von Claude bearbeitet."
     echo "Falsch-Positiv? Dem Nutzer Eintrag und Begründung vorschlagen — er trägt ihn selbst ein."

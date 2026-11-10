@@ -131,7 +131,9 @@ Secret-Schutz (Defense in Depth, generisch eingerichtet):
 Falsch-Positive: `.gitleaks.toml`-Allowlist, mit Begründungskommentar —
 einzutragen vom Menschen, `protect-secrets.sh` blockt Claude dort. Auf
 PRs prüft die CI mit der Allowlist des Base-Branches — eine Allowlist-Änderung
-kommt deshalb als eigener PR vor dem eigentlichen.
+kommt deshalb als eigener PR vor dem eigentlichen. Die Allowlist ist der einzige Freigabeweg: `gitleaks:allow`-Kommentare
+ignorieren alle Schichten, und `.gitleaksignore` ist für Claude gesperrt wie
+die Allowlist (auf PRs gilt auch hier die des Base-Branches).
 
 ## Roadmap & Offene Punkte
 

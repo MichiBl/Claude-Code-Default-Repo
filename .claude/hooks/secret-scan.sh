@@ -6,7 +6,9 @@
 # Mechanik: erkennt selbst, ob der auszuführende Befehl ein commit/push ist
 # (alles andere wird sofort durchgewunken), und scannt dann mit gitleaks:
 #   * commit -> gestagte UND nicht gestagte Änderungen an getrackten Dateien
-#               (gitleaks git --staged / --pre-commit; wegen `commit -a`)
+#               (gitleaks git --staged / --pre-commit; wegen `commit -a`);
+#               steht im selben Befehl ein `git add`, zusätzlich alle
+#               ungetrackten, nicht ignorierten Dateien
 #   * push   -> die Commits, die der Remote noch nicht hat
 #
 # Exit-Code-Vertrag (PreToolUse):
@@ -84,6 +86,11 @@ fi
 CONFIG_OPT=""
 [ -f .gitleaks.toml ] && CONFIG_OPT="--config=.gitleaks.toml"
 
+# --ignore-gitleaks-allow in jedem Aufruf unten: ein `gitleaks:allow`-Kommentar
+# auf der Secret-Zeile gäbe den Fund sonst frei — genau der Weg, den ein gerade
+# geblockter Agent als erstes findet. Freigaben laufen allein über
+# .gitleaks.toml, und die bearbeitet nur der Mensch (protect-secrets.sh).
+
 # --- Scan ----------------------------------------------------------------------
 STATUS=0
 RESULT=""
@@ -96,14 +103,34 @@ RESULT=""
 # den sieht --staged.
 if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?commit'; then
   # Commit: gestagte Änderungen scannen.
-  RESULT="$(gitleaks git --staged --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+  RESULT="$(gitleaks git --staged --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
   # Dazu die NICHT gestagten Änderungen an getrackten Dateien: `git commit -a`,
   # `git commit <pfad>` und `-i`/`-o` nehmen Inhalt aus dem Arbeitsbaum, den
   # --staged zum Zeitpunkt des Hooks nicht sieht — ein Secret kam so an dieser
   # Schicht vorbei. Die Flags zu parsen wäre fehleranfällig; einmal zu viel
   # scannen ist die sichere Richtung.
   if [ "$STATUS" -eq 0 ]; then
-    RESULT="$(gitleaks git --pre-commit --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+    RESULT="$(gitleaks git --pre-commit --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+  fi
+  # `git add x && git commit` in EINEM Befehl: der Hook läuft davor, die Datei
+  # ist noch ungetrackt und für beide Scans oben unsichtbar. Deshalb den
+  # Arbeitsbaum in einen Wegwerf-Index stagen und den scannen — der echte
+  # Index bleibt unberührt. `add -A` nimmt ALLE nicht ignorierten Dateien,
+  # nicht nur die genannten Pfade: einmal zu viel scannen ist die sichere
+  # Richtung. Ein Verzeichnis statt einer mktemp-Datei, weil Git eine leere
+  # Datei nicht als Index liest.
+  if [ "$STATUS" -eq 0 ] && printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?add'; then
+    if SCAN_TMP="$(mktemp -d 2>/dev/null)"; then
+      cp "$(git rev-parse --git-path index 2>/dev/null)" "$SCAN_TMP/index" 2>/dev/null || true
+      if GIT_INDEX_FILE="$SCAN_TMP/index" git add -A >/dev/null 2>&1; then
+        RESULT="$(GIT_INDEX_FILE="$SCAN_TMP/index" gitleaks git --staged --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+      else
+        echo "secret-scan: 'git add' erkannt, aber der Probe-Index ließ sich nicht füllen — neu hinzugefügte Dateien sind NICHT gescannt. Es trägt .githooks/pre-commit." >&2
+      fi
+      rm -rf "$SCAN_TMP"
+    else
+      echo "secret-scan: 'git add' erkannt, aber mktemp scheiterte — neu hinzugefügte Dateien sind NICHT gescannt. Es trägt .githooks/pre-commit." >&2
+    fi
   fi
 else
   # Push: die Commits scannen, die upstream noch fehlen.
@@ -114,11 +141,11 @@ else
     RANGE="origin/main..HEAD"
   fi
   if [ -n "$RANGE" ] && [ -n "$(git rev-list "$RANGE" 2>/dev/null | head -1)" ]; then
-    RESULT="$(gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} --log-opts "$RANGE" . 2>&1)" || STATUS=$?
+    RESULT="$(gitleaks git --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} --log-opts "$RANGE" . 2>&1)" || STATUS=$?
   elif [ -z "$RANGE" ]; then
     # Kein Upstream und kein origin/main (typisch: allererster Push eines
     # frischen Repos) -> gesamte lokale Historie scannen statt gar nicht.
-    RESULT="$(gitleaks git --no-banner --redact ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
+    RESULT="$(gitleaks git --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
   fi
 fi
 
