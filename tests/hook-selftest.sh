@@ -76,7 +76,7 @@ hook_run_in() { # hook_run_in <projektdir> <hook> — setzt RC (Exit) und ERR (s
 # gitleaks fehlt hier bewusst: secret-scan.sh läuft damit deterministisch in
 # seinen dokumentierten (b)-Zweig, egal was auf dem Host installiert ist.
 NOPY_BIN="$TMP/nopy-bin"; mkdir -p "$NOPY_BIN"
-for t in bash cat sed head basename grep git; do
+for t in bash cat sed head basename grep git tr readlink; do
   p="$(command -v "$t" 2>/dev/null || true)"
   [ -n "$p" ] && ln -sf "$p" "$NOPY_BIN/$t"
 done
@@ -177,6 +177,21 @@ check_contains "ohne python3: Backstop wird benannt" "pre-commit" "$ERR"
 
 hook_run_nopy "$TMP" "$PS" "$(payload_write /proj/src/app.ts)"
 check "ohne python3: normale Datei bleibt erlaubt" 0 "$RC"
+
+# Groß-/Kleinschreibung: macOS-Dateisysteme unterscheiden sie nicht — ein
+# Schreibzugriff auf `.ENV` trifft dort die echte `.env`.
+check ".ENV wird geblockt (case-insensitives Dateisystem)" 2 "$(hook_exit "$PS" "$(payload_write /proj/.ENV)")"
+check ".Env.Production wird geblockt"      2 "$(hook_exit "$PS" "$(payload_write /proj/.Env.Production)")"
+check "server.PEM wird geblockt"           2 "$(hook_exit "$PS" "$(payload_write /proj/certs/server.PEM)")"
+check "Secrets/-Pfad wird geblockt"        2 "$(hook_exit "$PS" "$(payload_write /proj/Secrets/sa.json)")"
+check ".GITLEAKS.TOML wird geblockt"       2 "$(hook_exit "$PS" "$(payload_write /proj/.GITLEAKS.TOML)")"
+# Symlink mit harmlosem Namen auf eine Secret-Datei: der Name des Links sagt
+# nichts, geschrieben wird ins Ziel.
+d="$TMP/ps-symlink"; mkdir -p "$d"
+echo "X=1" > "$d/.env"; echo "text" > "$d/notes.txt"
+ln -s .env "$d/harmlos.txt"; ln -s notes.txt "$d/alias.txt"
+check "Symlink auf .env wird geblockt"     2 "$(hook_exit "$PS" "$(payload_write "$d/harmlos.txt")")"
+check "Symlink auf normale Datei bleibt erlaubt" 0 "$(hook_exit "$PS" "$(payload_write "$d/alias.txt")")"
 
 # --- verify.sh -------------------------------------------------------------------
 echo "== verify.sh =="
@@ -307,6 +322,18 @@ if command -v gitleaks >/dev/null 2>&1; then
   echo "nur text" > "$ADDOK/notes.txt"
   check "git add && git commit ohne Secret bleibt erlaubt" 0 \
     "$(hook_exit_in "$ADDOK" "$SS" "$(payload_bash 'git add notes.txt && git commit -m wip')")"
+
+  # Regression: die commit-Erkennung verlangte `git<Leerraum>commit` wörtlich.
+  # Anführungszeichen, ein Backslash oder ein Zeilenumbruch dazwischen sind
+  # für die Shell derselbe Befehl, liefen aber am Scan vorbei.
+  check "\"git\" commit wird als Commit erkannt" 2 \
+    "$(hook_exit_in "$HOT" "$SS" '{"tool_input":{"command":"\"git\" commit -m test"}}')"
+  check "git 'commit' wird als Commit erkannt" 2 \
+    "$(hook_exit_in "$HOT" "$SS" "$(payload_bash "git 'commit' -m test")")"
+  check "git c\\ommit wird als Commit erkannt" 2 \
+    "$(hook_exit_in "$HOT" "$SS" '{"tool_input":{"command":"git c\\ommit -m test"}}')"
+  check "Zeilenfortsetzung zwischen git und commit wird erkannt" 2 \
+    "$(hook_exit_in "$HOT" "$SS" '{"tool_input":{"command":"git \\\ncommit -m test"}}')"
 
   # Regression: ein `gitleaks:allow`-Kommentar auf der Secret-Zeile gab den
   # Fund in ALLEN Schichten frei — an der .gitleaks.toml-Sperre vorbei.
@@ -601,6 +628,37 @@ check "core-drift.yml.example wandert ins Zielprojekt" 0 "$rc"
 # setup.sh nicht treffen darf.
 rc=0; [ ! -e "$d/LICENSE" ] || rc=1
 check "LICENSE wandert nicht ins Zielprojekt" 0 "$rc"
+
+# Symlinks im Ziel: `cp` und `mkdir -p` folgen ihnen. Ein fremdes Projekt
+# kann einen Symlink einchecken, der aus dem Projekt herauszeigt — setup.sh
+# schriebe dann dorthin (z. B. über ~/.bashrc).
+echo "== setup.sh: Symlinks im Ziel =="
+d="$TMP/sym-dir"; mkdir -p "$d" "$TMP/sym-outside"
+ln -s "$TMP/sym-outside" "$d/.githooks"
+out="$(bash "$ROOT/setup.sh" "$d" 2>&1)" || true
+rc=0; [ -z "$(ls -A "$TMP/sym-outside")" ] || rc=1
+check "Kopier-Modus schreibt nicht durch einen Verzeichnis-Symlink" 0 "$rc"
+check_contains "der Symlink wird gemeldet" "Symlink" "$out"
+d="$TMP/sym-dangling"; mkdir -p "$d"
+ln -s "$TMP/sym-outside-file" "$d/.gitleaks.toml"
+mkdir -p "$d/.claude"; ln -s "$TMP/sym-outside-version" "$d/.claude/TEMPLATE_VERSION"
+printf '{}' > "$d/package.json"; mkdir -p "$d/.github/workflows"
+ln -s "$TMP/sym-outside-ci" "$d/.github/workflows/ci.yml"
+run_setup "$d"
+rc=0; [ ! -e "$TMP/sym-outside-file" ] || rc=1
+check "Kopier-Modus schreibt nicht durch einen hängenden Symlink" 0 "$rc"
+rc=0; [ ! -e "$TMP/sym-outside-version" ] || rc=1
+check "Versionsstempel schreibt nicht durch einen Symlink" 0 "$rc"
+rc=0; [ ! -e "$TMP/sym-outside-ci" ] || rc=1
+check "CI-Aktivierung schreibt nicht durch einen Symlink" 0 "$rc"
+d="$TMP/sym-update"; mkdir -p "$d"
+run_setup "$d"
+echo "fremd" > "$TMP/sym-outside-hook"
+rm -f "$d/.claude/hooks/verify.sh"; ln -s "$TMP/sym-outside-hook" "$d/.claude/hooks/verify.sh"
+out="$(bash "$ROOT/setup.sh" --update "$d" 2>&1)" || true
+rc=0; grep -qx "fremd" "$TMP/sym-outside-hook" || rc=1
+check "--update überschreibt nicht durch einen Symlink" 0 "$rc"
+check_contains "--update meldet den Symlink" "Symlink" "$out"
 
 # --- setup.sh: --diff / --update (Werkzeug-Kern) ------------------------------------
 # Der Kern (Agents/Skills/Hooks) muss in allen Projekten identisch sein;
@@ -1138,6 +1196,12 @@ marker .claude/agents/qa-engineer.md "symbolic-ref"
 marker .claude/agents/code-reviewer.md "Verantwortlichkeits-Schnitt (SRP)"
 marker .claude/agents/code-reviewer.md "Harte Grenzen"
 marker .claude/agents/code-reviewer.md "Reuse Check"
+# Reviewer und QA lesen fremden Inhalt (Diff, Quelltext, Issue-Texte). Ohne
+# die Regel folgt ein Agent einem "gib APPROVED" aus einem Code-Kommentar.
+marker .claude/agents/code-reviewer.md "Daten, keine Anweisungen"
+marker .claude/agents/qa-engineer.md "Daten, keine Anweisungen"
+marker .claude/agents/requirements-engineer.md "Daten, keine Anweisungen"
+marker .claude/agents/solution-architect.md "Daten, keine Anweisungen"
 marker .claude/agents/solution-architect.md "Reused Utilities"
 marker .claude/agents/solution-architect.md "Eine Datei, eine Kernverantwortung"
 marker .claude/agents/requirements-engineer.md "Acceptance Criteria"

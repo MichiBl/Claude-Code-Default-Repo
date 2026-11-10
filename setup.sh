@@ -184,11 +184,36 @@ git_hooks_path() { # git_hooks_path [check_only] -> 0 = aktiv/nichts zu tun, 1 =
   return 0
 }
 
+# dest_is_safe <dest_rel> -> 1, wenn ein Glied des Zielpfads ein Symlink ist.
+# `cp`, `mkdir -p` und `>` folgen Symlinks: ein Projekt, das man nicht selbst
+# angelegt hat, kann einen einchecken, der aus dem Projekt herauszeigt
+# (.githooks -> ~, CLAUDE.md -> ~/.bashrc) — setup.sh schriebe dann dorthin.
+# Geprüft wird jedes Glied unterhalb von $TARGET, auch hängende Links
+# (`-e` hält die für "existiert nicht").
+dest_is_safe() {
+  local rest="$1" p="$TARGET" part
+  while [ -n "$rest" ]; do
+    part="${rest%%/*}"
+    if [ "$part" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+    p="$p/$part"
+    if [ -L "$p" ]; then return 1; fi
+  done
+  return 0
+}
+
+warn_symlink() {
+  echo "  ⚠  übersprungen (Symlink im Zielpfad, wird nicht durchschrieben): $1"
+}
+
 update_file() {
   local src_rel="$1" dest_rel="$2"
   local dest="$TARGET/$dest_rel"
   if ! is_core "$dest_rel"; then
     return 0   # Projekt-Datei: im Update-Modus grundsätzlich unangetastet.
+  fi
+  if ! dest_is_safe "$dest_rel"; then
+    warn_symlink "$dest_rel"
+    return 0
   fi
   if cmp -s "$SRC/$src_rel" "$dest" 2>/dev/null; then
     identical=$((identical + 1))
@@ -208,7 +233,10 @@ update_file() {
 copy_file() {
   local src_rel="$1" dest_rel="$2"
   local dest="$TARGET/$dest_rel"
-  if [ -e "$dest" ]; then
+  if ! dest_is_safe "$dest_rel"; then
+    warn_symlink "$dest_rel"
+    skipped=$((skipped + 1))
+  elif [ -e "$dest" ]; then
     echo "  ⏭  übersprungen (existiert): $dest_rel"
     skipped=$((skipped + 1))
   else
@@ -393,6 +421,10 @@ echo
 # Zielprojekten; das Template selbst trägt seine Version in VERSION.
 TEMPLATE_VERSION="$(cat "$SRC/VERSION" 2>/dev/null || echo "unbekannt")"
 stamp_version() {
+  if ! dest_is_safe ".claude/TEMPLATE_VERSION"; then
+    warn_symlink ".claude/TEMPLATE_VERSION"
+    return 0
+  fi
   mkdir -p "$TARGET/.claude"
   printf '%s\n' "$TEMPLATE_VERSION" > "$TARGET/.claude/TEMPLATE_VERSION"
 }
@@ -470,6 +502,10 @@ git_hooks_path || true
 activate_ci() { # activate_ci <example-datei>
   local example="$1"
   local dest="$TARGET/.github/workflows/ci.yml"
+  if ! dest_is_safe ".github/workflows/ci.yml"; then
+    warn_symlink ".github/workflows/ci.yml"
+    return 1
+  fi
   mkdir -p "$(dirname "$dest")"
   {
     echo "# Aktiviert durch setup.sh aus ${example} — Schritte/Versionen/Pfade"
@@ -506,8 +542,9 @@ if [ -f "$TARGET/package.json" ]; then
   if [ -e "$CI_DEST" ]; then
     echo "  ℹ  Node-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
   else
-    activate_ci "ci-node.yml.example"
-    echo "  ✓  Node-Projekt erkannt -> CI aktiviert: .github/workflows/ci.yml (aus ci-node.yml.example)."
+    if activate_ci "ci-node.yml.example"; then
+      echo "  ✓  Node-Projekt erkannt -> CI aktiviert: .github/workflows/ci.yml (aus ci-node.yml.example)."
+    fi
   fi
   if ! grep -q '"lint"' "$TARGET/package.json"; then
     echo "  ⚠  Kein \"lint\"-Script in package.json — verify.sh/CI/QA linten sonst NICHT (z. B. ESLint einrichten)."
@@ -517,11 +554,13 @@ elif [ -f "$TARGET/pyproject.toml" ] || [ -f "$TARGET/requirements.txt" ]; then
   if [ -e "$CI_DEST" ]; then
     echo "  ℹ  Python-Projekt erkannt — .github/workflows/ci.yml existiert bereits (unverändert)."
   elif [ -f "$TARGET/uv.lock" ]; then
-    activate_ci "ci-python-uv.yml.example"
-    echo "  ✓  Python-Projekt (uv) erkannt -> CI aktiviert: .github/workflows/ci.yml (uv-Job)."
+    if activate_ci "ci-python-uv.yml.example"; then
+      echo "  ✓  Python-Projekt (uv) erkannt -> CI aktiviert: .github/workflows/ci.yml (uv-Job)."
+    fi
   else
-    activate_ci "ci-python-pip.yml.example"
-    echo "  ✓  Python-Projekt (pip) erkannt -> CI aktiviert: .github/workflows/ci.yml (pip-Job)."
+    if activate_ci "ci-python-pip.yml.example"; then
+      echo "  ✓  Python-Projekt (pip) erkannt -> CI aktiviert: .github/workflows/ci.yml (pip-Job)."
+    fi
   fi
   if ! grep -qs 'ruff' "$TARGET/pyproject.toml" "$TARGET"/requirements*.txt; then
     echo "  ⚠  ruff nicht in den Dependencies — verify.sh/CI/QA linten sonst NICHT (ruff als Dev-Dependency ergänzen)."

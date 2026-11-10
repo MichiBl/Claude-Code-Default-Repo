@@ -49,6 +49,18 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
   die Zeilen von Hand nach.
 - `template-pin-check.yml`: fasst nur von einem Bot angelegte Issues an; die
   Titelsuche traf auch ein von Dritten geöffnetes Issue.
+- `protect-secrets.sh`: vergleicht kleingeschrieben und prüft bei Symlinks
+  auch das Ziel. Auf macOS traf ein Schreibzugriff auf `.ENV` die echte
+  `.env`; ein Symlink mit harmlosem Namen auf `.env` kam ebenfalls durch.
+- `secret-scan.sh`: erkennt `"git" commit`, `git 'commit'`, `git c\ommit`
+  und eine Zeilenfortsetzung zwischen `git` und `commit` — für die Shell
+  derselbe Befehl, bisher ohne Scan.
+- `setup.sh`: schreibt nicht mehr durch Symlinks im Zielprojekt (Kopieren,
+  `--update`, Versionsstempel, CI-Aktivierung). Ein eingecheckter Symlink wie
+  `.githooks -> ~` ließ `setup.sh` außerhalb des Projekts schreiben.
+- Agenten: gelesener Inhalt (Diff, Quelltext, Doku) gilt ausdrücklich als
+  Daten, nicht als Anweisung; im Review ist eine eingebettete Aufforderung
+  ein HIGH-Finding.
 
 ### Fixed
 

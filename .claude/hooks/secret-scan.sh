@@ -20,7 +20,9 @@
 #   (b) gitleaks nicht installiert    -> exit 0 mit Hinweis (CI ist Backstop)
 #
 # Bekannte Lücken DIESER Claude-Schicht (Best-Effort): git-Aliasse (`git ci`),
-# Commits aus Skripten/eval heraus, und der Push-Zweig scannt upstream..HEAD —
+# Commits aus Skripten/eval heraus, per Variable zusammengesetzte Befehle
+# (`$G commit`), Commits in einem anderen Repo (`git -C <pfad>`, `cd <pfad>`
+# — gescannt wird immer das Projektverzeichnis), und der Push-Zweig scannt upstream..HEAD —
 # `git push origin <anderer-branch>` trifft also den falschen Bereich. Alle
 # drei fängt inzwischen die Git-Schicht (.githooks/pre-commit + pre-push):
 # Git ruft die selbst auf, egal wie der commit/push ausgelöst wurde, und
@@ -69,8 +71,15 @@ else
   } >&2
 fi
 
+# Für die Erkennung normalisieren: `"git" commit`, `git 'commit'`, `git c\ommit`
+# und eine Zeilenfortsetzung zwischen `git` und `commit` sind für die Shell
+# derselbe Befehl, matchten das Muster unten aber nicht — der Scan entfiel.
+# Zeilenumbrüche zu Leerzeichen kann zwei Befehle zusammenziehen und damit
+# einmal zu oft scannen; das ist die sichere Richtung.
+DETECT="$(printf '%s' "$CMD" | tr '\n' ' ' | tr -d "\"'\\\\")"
+
 # (a) Nur bei git commit / git push aktiv werden.
-if ! printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?(commit|push)'; then
+if ! printf '%s' "$DETECT" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?(commit|push)'; then
   exit 0
 fi
 
@@ -101,7 +110,7 @@ RESULT=""
 # ein gestagtes Secret kam durch. Ein commit-mit-push (`git commit && git
 # push`) gehört ebenfalls hierher: gescannt werden muss der neue Inhalt, und
 # den sieht --staged.
-if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?commit'; then
+if printf '%s' "$DETECT" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?commit'; then
   # Commit: gestagte Änderungen scannen.
   RESULT="$(gitleaks git --staged --no-banner --redact --ignore-gitleaks-allow ${CONFIG_OPT:+"$CONFIG_OPT"} . 2>&1)" || STATUS=$?
   # Dazu die NICHT gestagten Änderungen an getrackten Dateien: `git commit -a`,
@@ -119,7 +128,7 @@ if printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?commit'; t
   # nicht nur die genannten Pfade: einmal zu viel scannen ist die sichere
   # Richtung. Ein Verzeichnis statt einer mktemp-Datei, weil Git eine leere
   # Datei nicht als Index liest.
-  if [ "$STATUS" -eq 0 ] && printf '%s' "$CMD" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?add'; then
+  if [ "$STATUS" -eq 0 ] && printf '%s' "$DETECT" | grep -Eq 'git[[:space:]]+([^|;&]*[[:space:]])?add'; then
     if SCAN_TMP="$(mktemp -d 2>/dev/null)"; then
       cp "$(git rev-parse --git-path index 2>/dev/null)" "$SCAN_TMP/index" 2>/dev/null || true
       if GIT_INDEX_FILE="$SCAN_TMP/index" git add -A >/dev/null 2>&1; then
