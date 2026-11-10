@@ -61,40 +61,64 @@ fi
 # Scan-Schichten (gitleaks, CI, Push Protection).
 [ -n "$FILE" ] || exit 0
 
-BASE="$(basename "$FILE")"
+# classify <pfad> -> stdout: allow | secret | allowlist
+#
+# Verglichen wird kleingeschrieben: macOS-Dateisysteme unterscheiden Groß-
+# und Kleinschreibung nicht — ein Schreibzugriff auf `.ENV` trifft dort die
+# echte `.env`. (`tr` statt `${var,,}`: Bash 3.2.)
+classify() {
+  local path base
+  path="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  base="$(basename "$path")"
 
-# Vorlagen ohne echte Werte bleiben editierbar — bewusst nur .env.example.
-# .env.dist/.env.template standen hier ebenfalls, waren aber weder in
-# .gitignore negiert noch in der .gitleaks.toml-Allowlist: Claude durfte sie
-# pflegen, committet wurden sie nie. Jeder zusätzliche Vorlagenname
-# vergrößert außerdem den in .gitleaks.toml dokumentierten blinden Fleck
-# (Vorlagen sind von allen gitleaks-Schichten ausgenommen). Wer .env.dist
-# braucht, ergänzt ihn hier UND in .gitignore UND in .gitleaks.toml.
-case "$BASE" in
-  .env.example) exit 0 ;;
-esac
+  # Vorlagen ohne echte Werte bleiben editierbar — bewusst nur .env.example.
+  # .env.dist/.env.template standen hier ebenfalls, waren aber weder in
+  # .gitignore negiert noch in der .gitleaks.toml-Allowlist: Claude durfte sie
+  # pflegen, committet wurden sie nie. Jeder zusätzliche Vorlagenname
+  # vergrößert außerdem den in .gitleaks.toml dokumentierten blinden Fleck
+  # (Vorlagen sind von allen gitleaks-Schichten ausgenommen). Wer .env.dist
+  # braucht, ergänzt ihn hier UND in .gitignore UND in .gitleaks.toml.
+  case "$base" in
+    .env.example) echo allow; return ;;
+  esac
 
-# Gleiche Abdeckung wie die deny-Regeln in settings.json. Der Selbsttest
-# gleicht die drei Aufzählungen (settings.json, dieser Hook, .gitignore)
-# gegeneinander ab — Ergänzungen gehören in alle drei.
-BLOCKED=""
-case "$BASE" in
-  .env|.env.*|*.pem|*.key|*.p12|*.pfx|id_rsa*|id_ed25519*) BLOCKED=1 ;;
-  credentials*.json|service-account*.json) BLOCKED=1 ;;
-  .npmrc|.pypirc|.netrc) BLOCKED=1 ;;
-esac
-case "$FILE" in
-  secrets/*|*/secrets/*) BLOCKED=1 ;;
-esac
+  # Die gitleaks-Allowlist entscheidet, was die Scan-Schichten durchlassen. Darf
+  # Claude sie ändern, kann es einen Fund "als Falsch-Positiv" freigeben, und
+  # pre-commit, pre-push und secret-scan.sh lassen das Secret bis ins Remote
+  # durch. Allowlist-Einträge sind deshalb Sache des Menschen.
+  # .gitleaksignore ist derselbe Hebel in anderer Form: ein Fingerprint dort
+  # unterdrückt den Fund, und gitleaks kennt keinen Schalter, die Datei zu
+  # ignorieren.
+  case "$base" in
+    .gitleaks.toml|.gitleaksignore) echo allowlist; return ;;
+  esac
 
-# Die gitleaks-Allowlist entscheidet, was die Scan-Schichten durchlassen. Darf
-# Claude sie ändern, kann es einen Fund "als Falsch-Positiv" freigeben, und
-# pre-commit, pre-push und secret-scan.sh lassen das Secret bis ins Remote
-# durch. Allowlist-Einträge sind deshalb Sache des Menschen.
-# .gitleaksignore ist derselbe Hebel in anderer Form: ein Fingerprint dort
-# unterdrückt den Fund, und gitleaks kennt keinen Schalter, die Datei zu
-# ignorieren.
-if [ "$BASE" = ".gitleaks.toml" ] || [ "$BASE" = ".gitleaksignore" ]; then
+  # Gleiche Abdeckung wie die deny-Regeln in settings.json. Der Selbsttest
+  # gleicht die drei Aufzählungen (settings.json, dieser Hook, .gitignore)
+  # gegeneinander ab — Ergänzungen gehören in alle drei.
+  case "$base" in
+    .env|.env.*|*.pem|*.key|*.p12|*.pfx|id_rsa*|id_ed25519*) echo secret; return ;;
+    credentials*.json|service-account*.json) echo secret; return ;;
+    .npmrc|.pypirc|.netrc) echo secret; return ;;
+  esac
+  case "$path" in
+    secrets/*|*/secrets/*) echo secret; return ;;
+  esac
+  echo allow
+}
+
+VERDICT="$(classify "$FILE")"
+
+# Ein Symlink mit harmlosem Namen sagt nichts über sein Ziel: geschrieben wird
+# dorthin. Deshalb zusätzlich das Ziel prüfen; es gilt das strengere Urteil
+# (auch für einen Link namens .env.example, der auf .env zeigt). Nur die erste
+# Ebene — Ketten und Symlinks in Elternverzeichnissen bleiben Best-Effort.
+if [ -L "$FILE" ]; then
+  LINK_VERDICT="$(classify "$(readlink "$FILE" 2>/dev/null || true)")"
+  [ "$LINK_VERDICT" = "allow" ] || VERDICT="$LINK_VERDICT"
+fi
+
+if [ "$VERDICT" = "allowlist" ]; then
   {
     echo "🔒 protect-secrets: '$FILE' ist die Allowlist der Secret-Scans und wird nicht von Claude bearbeitet."
     echo "Falsch-Positiv? Dem Nutzer Eintrag und Begründung vorschlagen — er trägt ihn selbst ein."
@@ -102,7 +126,7 @@ if [ "$BASE" = ".gitleaks.toml" ] || [ "$BASE" = ".gitleaksignore" ]; then
   exit 2
 fi
 
-if [ -n "$BLOCKED" ]; then
+if [ "$VERDICT" = "secret" ]; then
   {
     echo "🔒 protect-secrets: '$FILE' kann Credentials enthalten und wird nicht von Claude bearbeitet."
     echo "Ist die Änderung wirklich nötig, muss der Nutzer sie manuell vornehmen."
