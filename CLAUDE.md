@@ -253,15 +253,12 @@ Kein Deploy — die Verteilung ist `./setup.sh` von Hand.
   aktualisiert statt dupliziert).
   **Das Heben selbst bleibt Handarbeit**, samt Prüfung der Breaking Changes
   übersprungener Major-Versionen gegen die tatsächliche Nutzung.
-  Zuletzt geschehen: 2026-10-29 (setup-python v7.0.0 -> v7.1.0, setup-uv
-  v10.3.0 -> v10.3.2; kein Breaking Change — setup-python bekommt nur die
-  Inputs `mirror`/`mirror-token`, deren Default die bisherige Manifest-Quelle
-  ist; setup-uv ändert `action.yml` gar nicht. Die Vorlagen nutzen nur
-  `python-version` bzw. `enable-cache`). Bewusst nicht v10.3.3: am Tag des
-  Hebens einen Tag alt — das Gegenstück zum Dependabot-`cooldown` (7 Tage)
-  für Pins, die Dependabot nicht sieht. Kein Security-Fix, der das Abkürzen
-  der Wartezeit rechtfertigen würde; es verlegt den Manifest-Abruf auf
-  `releases.astral.sh` mit GitHub als Fallback.
+  Zuletzt geschehen: 2026-11-10 (setup-uv v10.3.2 -> v10.3.3, nach Ablauf
+  des 7-Tage-Cooldowns; kein Breaking Change — `action.yml` unverändert, die
+  Vorlage nutzt nur `enable-cache`). Einzige Verhaltensänderung: das
+  Versions-Manifest kommt zuerst von `releases.astral.sh`, bei Fehler von
+  `raw.githubusercontent.com` wie bisher. Runner mit Egress-Allowlist
+  brauchen den neuen Host nicht, zahlen ohne ihn aber Retries plus Fallback.
 - Die Agenten-Tests im Selbsttest prüfen nur Struktur-Marker, nicht Verhalten
   — LLM-Ausgaben sind deterministisch nicht prüfbar.
 - `setup.sh --diff` erkennt Kern-Verfall nur, wenn es jemand ausführt.
