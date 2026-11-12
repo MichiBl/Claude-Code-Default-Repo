@@ -6,6 +6,13 @@ nach [SemVer](https://semver.org/lang/de/). Ein Release = Versions-Bump in
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-12
+
+**Vor `--update` in Zielprojekten:** `gitleaks:allow`-Kommentare geben keinen
+Fund mehr frei — bestehende Einträge in die `.gitleaks.toml`-Allowlist
+übertragen. Die neuen deny-Regeln stehen in `.claude/settings.json`
+(PROJEKT-Datei) und müssen dort von Hand nachgezogen werden.
+
 ### Security
 
 - `secret-scan.yml`: auf PRs gilt die `.gitleaks.toml` des Base-Branches.
